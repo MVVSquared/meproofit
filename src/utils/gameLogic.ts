@@ -1,4 +1,4 @@
-import { GameSentence, Correction, SentenceError } from '../types';
+import { Correction, SentenceError } from '../types';
 
 export class GameLogic {
   static checkCorrections(

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Topic, GameSentence, Correction } from '../types';
 import { LLMService } from '../services/llmService';
 import { GameLogic } from '../utils/gameLogic';
-import { CheckCircle, XCircle, RotateCcw, Trophy } from 'lucide-react';
+import { CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic;
@@ -25,11 +25,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
 
-  useEffect(() => {
-    generateNewSentence();
-  }, [selectedTopic]);
-
-  const generateNewSentence = async () => {
+  const generateNewSentence = useCallback(async () => {
     setIsLoading(true);
     setUserInput('');
     setAttempts(0);
@@ -76,7 +72,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedTopic]);
+
+  useEffect(() => {
+    generateNewSentence();
+  }, [generateNewSentence]);
 
   const handleSubmit = () => {
     if (!currentSentence || !GameLogic.validateUserInput(userInput)) {
@@ -106,16 +106,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     if (e.key === 'Enter') {
       handleSubmit();
     }
-  };
-
-  const getWordStyle = (word: string, index: number) => {
-    const correction = corrections.find(c => c.position === index);
-    if (correction) {
-      return correction.type === 'correct' 
-        ? 'bg-success-100 text-success-700 border-success-300' 
-        : 'bg-error-100 text-error-700 border-error-300';
-    }
-    return 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
   if (isLoading) {
