@@ -116,36 +116,39 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   const renderHighlightedInput = () => {
     if (!userInput || corrections.length === 0) {
-      return userInput;
+      return <span>{userInput}</span>;
     }
 
-    let result = userInput;
-    const highlights: Array<{start: number, end: number, type: 'correct' | 'incorrect'}> = [];
-
-    // Sort corrections by position to avoid overlapping
     const sortedCorrections = [...corrections].sort((a, b) => a.position - b.position);
-    
-    // Calculate highlight positions
-    sortedCorrections.forEach(correction => {
-      const start = correction.position;
-      const end = start + correction.correctedText.length;
-      highlights.push({ start, end, type: correction.type });
-    });
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
 
-    // Apply highlights (working backwards to maintain positions)
-    highlights.reverse().forEach(highlight => {
-      const before = result.substring(0, highlight.start);
-      const highlighted = result.substring(highlight.start, highlight.end);
-      const after = result.substring(highlight.end);
-      
-      const className = highlight.type === 'correct' 
+    sortedCorrections.forEach(correction => {
+      // Add text before this correction
+      if (correction.position > lastIndex) {
+        parts.push(userInput.substring(lastIndex, correction.position));
+      }
+
+      // Add the highlighted correction
+      const className = correction.type === 'correct' 
         ? 'bg-green-200 text-green-800 font-semibold' 
         : 'bg-red-200 text-red-800 font-semibold';
       
-      result = `${before}<span class="${className}">${highlighted}</span>${after}`;
+      parts.push(
+        <span key={correction.position} className={className}>
+          {correction.correctedText}
+        </span>
+      );
+
+      lastIndex = correction.position + correction.correctedText.length;
     });
 
-    return result;
+    // Add any remaining text
+    if (lastIndex < userInput.length) {
+      parts.push(userInput.substring(lastIndex));
+    }
+
+    return <>{parts}</>;
   };
 
   if (isLoading) {
@@ -248,10 +251,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
           {corrections.length > 0 ? (
             <div className="bg-white border border-gray-300 p-4 rounded-lg min-h-[100px]">
-              <div 
-                className="text-lg text-gray-800 whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: renderHighlightedInput() }}
-              />
+              <div className="text-lg text-gray-800 whitespace-pre-wrap">
+                {renderHighlightedInput()}
+              </div>
             </div>
           ) : (
             <textarea
