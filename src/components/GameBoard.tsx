@@ -114,6 +114,40 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
+  const renderHighlightedInput = () => {
+    if (!userInput || corrections.length === 0) {
+      return userInput;
+    }
+
+    let result = userInput;
+    const highlights: Array<{start: number, end: number, type: 'correct' | 'incorrect'}> = [];
+
+    // Sort corrections by position to avoid overlapping
+    const sortedCorrections = [...corrections].sort((a, b) => a.position - b.position);
+    
+    // Calculate highlight positions
+    sortedCorrections.forEach(correction => {
+      const start = correction.position;
+      const end = start + correction.correctedText.length;
+      highlights.push({ start, end, type: correction.type });
+    });
+
+    // Apply highlights (working backwards to maintain positions)
+    highlights.reverse().forEach(highlight => {
+      const before = result.substring(0, highlight.start);
+      const highlighted = result.substring(highlight.start, highlight.end);
+      const after = result.substring(highlight.end);
+      
+      const className = highlight.type === 'correct' 
+        ? 'bg-green-200 text-green-800 font-semibold' 
+        : 'bg-red-200 text-red-800 font-semibold';
+      
+      result = `${before}<span class="${className}">${highlighted}</span>${after}`;
+    });
+
+    return result;
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto p-6">
@@ -212,42 +246,37 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* User Input */}
         <div className="mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
-          <textarea
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your corrected sentence here..."
-            className="input-field min-h-[100px] resize-none"
-            disabled={isComplete}
-          />
+          {corrections.length > 0 ? (
+            <div className="bg-white border border-gray-300 p-4 rounded-lg min-h-[100px]">
+              <div 
+                className="text-lg text-gray-800 whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: renderHighlightedInput() }}
+              />
+            </div>
+          ) : (
+            <textarea
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your corrected sentence here..."
+              className="input-field min-h-[100px] resize-none"
+              disabled={isComplete}
+            />
+          )}
         </div>
 
-        {/* Corrections Display */}
+        {/* Legend for highlights */}
         {corrections.length > 0 && (
           <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3">Your Changes:</h3>
-            <div className="space-y-2">
-              {corrections.map((correction, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-2 p-2 rounded-lg border ${
-                    correction.type === 'correct' 
-                      ? 'bg-success-50 border-success-200' 
-                      : 'bg-error-50 border-error-200'
-                  }`}
-                >
-                  {correction.type === 'correct' ? (
-                    <CheckCircle className="text-success-600" size={20} />
-                  ) : (
-                    <XCircle className="text-error-600" size={20} />
-                  )}
-                  <span className="text-sm">
-                    <span className="font-medium">"{correction.originalText}"</span>
-                    <span className="mx-2">→</span>
-                    <span className="font-medium">"{correction.correctedText}"</span>
-                  </span>
-                </div>
-              ))}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-200 rounded"></div>
+                <span>Correct changes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-200 rounded"></div>
+                <span>Incorrect changes</span>
+              </div>
             </div>
           </div>
         )}
