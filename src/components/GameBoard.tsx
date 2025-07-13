@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Topic, GameSentence, Correction, User } from '../types';
 import { LLMService } from '../services/llmService';
 import { GameLogic } from '../utils/gameLogic';
-import { CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic;
