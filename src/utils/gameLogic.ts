@@ -18,7 +18,6 @@ export class GameLogic {
     // Split sentences into words for comparison
     const userWords = userInput.split(' ');
     const originalWords = originalIncorrectSentence.split(' ');
-    const correctWords = correctSentence.split(' ');
     
     // Use a more flexible approach to detect changes
     let userIndex = 0;
