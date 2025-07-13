@@ -51,7 +51,7 @@ export class LLMService {
   }
 
   private static getContentType(grade: string): string {
-    if (grade.includes('3rd') || grade.includes('4th') || grade.includes('5th')) {
+    if (grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
       return 'sentences';
     } else {
       return 'paragraphs';
@@ -71,7 +71,7 @@ IMPORTANT: Include a mix of these error types:
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
 
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
-${grade.includes('3rd') || grade.includes('4th') || grade.includes('5th') 
+${grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1 
   ? 'Keep it to 1-2 sentences maximum.' 
   : 'Make it 2-3 sentences that form a cohesive paragraph.'}
 
@@ -91,9 +91,9 @@ Respond ONLY with this exact JSON format (no other text):
   }
 
   private static getGradeDescription(grade: string): string {
-    if (grade.includes('3rd') || grade.includes('4th') || grade.includes('5th')) {
+    if (grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
       return 'elementary school';
-    } else if (grade.includes('6th') || grade.includes('7th') || grade.includes('8th')) {
+    } else if (grade.indexOf('6th') !== -1 || grade.indexOf('7th') !== -1 || grade.indexOf('8th') !== -1) {
       return 'middle school';
     } else {
       return 'high school';
@@ -118,7 +118,7 @@ Respond ONLY with this exact JSON format (no other text):
       // Validate error types
       const validTypes = ['spelling', 'punctuation', 'capitalization'];
       for (const error of parsed.errors) {
-        if (!validTypes.includes(error.type)) {
+        if (validTypes.indexOf(error.type) === -1) {
           throw new Error(`Invalid error type: ${error.type}`);
         }
       }
@@ -133,8 +133,8 @@ Respond ONLY with this exact JSON format (no other text):
   // Fallback method for when LLM is not available
   static getFallbackSentence(topic: string, grade: string): LLMResponse {
     // Check if this is a middle/high school grade
-    const isMiddleOrHighSchool = grade.includes('6th') || grade.includes('7th') || grade.includes('8th') || 
-                                 grade.includes('9th') || grade.includes('10th') || grade.includes('11th') || grade.includes('12th');
+    const isMiddleOrHighSchool = grade.indexOf('6th') !== -1 || grade.indexOf('7th') !== -1 || grade.indexOf('8th') !== -1 || 
+                                 grade.indexOf('9th') !== -1 || grade.indexOf('10th') !== -1 || grade.indexOf('11th') !== -1 || grade.indexOf('12th') !== -1;
     
     const fallbackSentences = {
       basketball: [
