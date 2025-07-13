@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Topic, GameSentence, Correction } from '../types';
+import { Topic, GameSentence, Correction, User } from '../types';
 import { LLMService } from '../services/llmService';
 import { GameLogic } from '../utils/gameLogic';
 import { CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic;
+  user: User;
   onGameComplete: (score: number) => void;
   onBackToTopics: () => void;
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   selectedTopic,
+  user,
   onGameComplete,
   onBackToTopics
 }) => {
@@ -34,13 +36,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setShowHint(false);
 
     try {
-      // Try to get sentence from LLM
+      // Try to get sentence from LLM using user's difficulty level
       console.log('Attempting to generate sentence for topic:', selectedTopic.name);
       console.log('API Key status:', process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing');
+      console.log('User difficulty:', user.difficulty);
       
       const llmResponse = await LLMService.generateSentenceWithErrors(
         selectedTopic.name,
-        'medium'
+        user.difficulty
       );
 
       console.log('Generated sentence:', llmResponse.incorrectSentence);
@@ -50,7 +53,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         incorrectSentence: llmResponse.incorrectSentence,
         correctSentence: llmResponse.correctSentence,
         topic: selectedTopic.name,
-        difficulty: 'medium',
+        difficulty: user.difficulty,
         errors: llmResponse.errors
       };
 
@@ -66,14 +69,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         incorrectSentence: fallback.incorrectSentence,
         correctSentence: fallback.correctSentence,
         topic: selectedTopic.name,
-        difficulty: 'medium',
+        difficulty: user.difficulty,
         errors: fallback.errors
       };
       setCurrentSentence(gameSentence);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTopic]);
+  }, [selectedTopic, user.difficulty]);
 
   useEffect(() => {
     generateNewSentence();
@@ -184,7 +187,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <span className="text-2xl">{selectedTopic.icon}</span>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">{selectedTopic.name}</h2>
-              <p className="text-sm text-gray-500">Attempt {attempts + 1} of {maxAttempts}</p>
+              <p className="text-sm text-gray-500">
+                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade})
+              </p>
             </div>
           </div>
           <button

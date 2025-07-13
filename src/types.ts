@@ -5,6 +5,12 @@ export interface Topic {
   icon: string;
 }
 
+export interface User {
+  name: string;
+  grade: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
 export interface GameSentence {
   id: string;
   incorrectSentence: string;
