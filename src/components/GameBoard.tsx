@@ -22,6 +22,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [attempts, setAttempts] = useState(0);
   const [maxAttempts] = useState(4);
   const [corrections, setCorrections] = useState<Correction[]>([]);
+  const [attemptHistory, setAttemptHistory] = useState<Array<{
+    attempt: number;
+    userInput: string;
+    corrections: Correction[];
+  }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [score, setScore] = useState(0);
@@ -32,6 +37,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setUserInput('');
     setAttempts(0);
     setCorrections([]);
+    setAttemptHistory([]);
     setIsComplete(false);
     setShowHint(false);
 
@@ -99,6 +105,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     );
     setCorrections(newCorrections);
 
+    // Save this attempt to history
+    setAttemptHistory(prev => [...prev, {
+      attempt: newAttempts,
+      userInput: userInput,
+      corrections: newCorrections
+    }]);
+
     const isCorrect = GameLogic.isSentenceCorrect(userInput, currentSentence.correctSentence);
     
     if (isCorrect || newAttempts >= maxAttempts) {
@@ -114,17 +127,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
-  const renderHighlightedInput = () => {
-    if (!userInput || corrections.length === 0) {
-      return <span>{userInput}</span>;
+  const renderHighlightedInput = (inputText: string, inputCorrections: Correction[]) => {
+    if (!inputText || inputCorrections.length === 0) {
+      return <span>{inputText}</span>;
     }
 
-    const userWords = userInput.split(' ');
+    const userWords = inputText.split(' ');
     const parts: React.ReactNode[] = [];
 
     userWords.forEach((word, wordIndex) => {
       // Check if this word position has a correction
-      const correction = corrections.find(c => c.position === wordIndex);
+      const correction = inputCorrections.find(c => c.position === wordIndex);
       
       if (correction) {
         // Add the highlighted correction
@@ -259,14 +272,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           />
         </div>
 
-        {/* Highlighted Preview */}
-        {corrections.length > 0 && (
+        {/* Attempt History */}
+        {attemptHistory.length > 0 && (
           <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3">Your Changes:</h3>
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-              <div className="text-lg text-gray-800 whitespace-pre-wrap">
-                {renderHighlightedInput()}
-              </div>
+            <h3 className="font-semibold text-gray-900 mb-3">Your Attempts:</h3>
+            <div className="space-y-3">
+              {attemptHistory.map((attempt, index) => (
+                <div key={attempt.attempt} className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600">
+                      Attempt {attempt.attempt}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {attempt.corrections.filter(c => c.type === 'correct').length} correct, 
+                      {attempt.corrections.filter(c => c.type === 'incorrect').length} incorrect
+                    </span>
+                  </div>
+                  <div className="text-lg text-gray-800 whitespace-pre-wrap">
+                    {renderHighlightedInput(attempt.userInput, attempt.corrections)}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
