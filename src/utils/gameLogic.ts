@@ -113,7 +113,14 @@ export class GameLogic {
   }
 
   static isSentenceCorrect(userInput: string, correctSentence: string): boolean {
-    return userInput.trim() === correctSentence.trim();
+    // Normalize both strings for comparison
+    const normalizeString = (str: string) => {
+      return str
+        .trim()
+        .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+    };
+    
+    return normalizeString(userInput) === normalizeString(correctSentence);
   }
 
   static calculateScore(attempts: number, maxAttempts: number, corrections: Correction[]): number {

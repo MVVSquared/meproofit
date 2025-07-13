@@ -114,6 +114,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
     const isCorrect = GameLogic.isSentenceCorrect(userInput, currentSentence.correctSentence);
     
+    // Debug logging
+    console.log('User input:', JSON.stringify(userInput));
+    console.log('Correct sentence:', JSON.stringify(currentSentence.correctSentence));
+    console.log('Is correct:', isCorrect);
+    
     if (isCorrect || newAttempts >= maxAttempts) {
       const finalScore = GameLogic.calculateScore(newAttempts, maxAttempts, newCorrections);
       setScore(finalScore);
