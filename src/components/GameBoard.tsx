@@ -119,34 +119,34 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       return <span>{userInput}</span>;
     }
 
-    const sortedCorrections = [...corrections].sort((a, b) => a.position - b.position);
+    const userWords = userInput.split(' ');
     const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
 
-    sortedCorrections.forEach(correction => {
-      // Add text before this correction
-      if (correction.position > lastIndex) {
-        parts.push(userInput.substring(lastIndex, correction.position));
-      }
-
-      // Add the highlighted correction
-      const className = correction.type === 'correct' 
-        ? 'bg-green-200 text-green-800 font-semibold' 
-        : 'bg-red-200 text-red-800 font-semibold';
+    userWords.forEach((word, wordIndex) => {
+      // Check if this word position has a correction
+      const correction = corrections.find(c => c.position === wordIndex);
       
-      parts.push(
-        <span key={correction.position} className={className}>
-          {correction.correctedText}
-        </span>
-      );
-
-      lastIndex = correction.position + correction.correctedText.length;
+      if (correction) {
+        // Add the highlighted correction
+        const className = correction.type === 'correct' 
+          ? 'bg-green-200 text-green-800 font-semibold' 
+          : 'bg-red-200 text-red-800 font-semibold';
+        
+        parts.push(
+          <span key={wordIndex} className={className}>
+            {word}
+          </span>
+        );
+      } else {
+        // Add normal word
+        parts.push(<span key={wordIndex}>{word}</span>);
+      }
+      
+      // Add space between words (except for the last word)
+      if (wordIndex < userWords.length - 1) {
+        parts.push(' ');
+      }
     });
-
-    // Add any remaining text
-    if (lastIndex < userInput.length) {
-      parts.push(userInput.substring(lastIndex));
-    }
 
     return <>{parts}</>;
   };
