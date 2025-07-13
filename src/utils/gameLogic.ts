@@ -20,41 +20,95 @@ export class GameLogic {
     const originalWords = originalIncorrectSentence.split(' ');
     const correctWords = correctSentence.split(' ');
     
-    // Only show feedback for words that the player actually changed
-    for (let i = 0; i < userWords.length && i < originalWords.length; i++) {
-      const userWord = userWords[i];
-      const originalWord = originalWords[i];
-      const correctWord = correctWords[i] || '';
+    // Use a more flexible approach to detect changes
+    let userIndex = 0;
+    let originalIndex = 0;
+    
+    while (userIndex < userWords.length && originalIndex < originalWords.length) {
+      const userWord = userWords[userIndex];
+      const originalWord = originalWords[originalIndex];
+      const correctWord = correctWords[userIndex] || '';
       
-      // Only show feedback if the player changed this word from the original
-      if (userWord !== originalWord) {
-        // Check if their change was correct
-        if (userWord === correctWord) {
+      // If words match, move both indices forward
+      if (userWord === originalWord) {
+        userIndex++;
+        originalIndex++;
+        continue;
+      }
+      
+      // Check if this is a known error correction
+      const expectedCorrection = expectedCorrections.get(originalWord);
+      if (expectedCorrection && userWord === expectedCorrection) {
+        corrections.push({
+          type: 'correct',
+          originalText: originalWord,
+          correctedText: userWord,
+          position: userIndex
+        });
+        userIndex++;
+        originalIndex++;
+        continue;
+      }
+      
+      // Check if user split a word (e.g., "Highschool" -> "High school")
+      if (originalWord && userWord && originalWord.length > userWord.length) {
+        const nextUserWord = userWords[userIndex + 1];
+        const combinedWords = userWord + (nextUserWord ? ' ' + nextUserWord : '');
+        
+        if (combinedWords === originalWord) {
+          // User split a word correctly
           corrections.push({
             type: 'correct',
             originalText: originalWord,
-            correctedText: userWord,
-            position: i
+            correctedText: userWord + (nextUserWord ? ' ' + nextUserWord : ''),
+            position: userIndex
           });
-        } else {
-          corrections.push({
-            type: 'incorrect',
-            originalText: originalWord,
-            correctedText: userWord,
-            position: i
-          });
+          userIndex += 2; // Skip both words
+          originalIndex++;
+          continue;
         }
       }
+      
+      // Check if user combined words (e.g., "High school" -> "Highschool")
+      if (userWord && originalWord && userWord.length > originalWord.length) {
+        const nextOriginalWord = originalWords[originalIndex + 1];
+        const combinedOriginal = originalWord + (nextOriginalWord ? ' ' + nextOriginalWord : '');
+        
+        if (userWord === combinedOriginal) {
+          // User combined words correctly
+          corrections.push({
+            type: 'correct',
+            originalText: originalWord + (nextOriginalWord ? ' ' + nextOriginalWord : ''),
+            correctedText: userWord,
+            position: userIndex
+          });
+          userIndex++;
+          originalIndex += 2; // Skip both original words
+          continue;
+        }
+      }
+      
+      // If we get here, it's an incorrect change
+      corrections.push({
+        type: 'incorrect',
+        originalText: originalWord,
+        correctedText: userWord,
+        position: userIndex
+      });
+      
+      userIndex++;
+      originalIndex++;
     }
     
-    // Handle case where user added extra words
-    for (let i = originalWords.length; i < userWords.length; i++) {
+    // Handle remaining words
+    while (userIndex < userWords.length) {
       corrections.push({
         type: 'incorrect',
         originalText: '',
-        correctedText: userWords[i],
-        position: i
+        correctedText: userWords[userIndex],
+        position: userIndex
       });
+      userIndex++;
     }
     
     return corrections;
