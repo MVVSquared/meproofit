@@ -51,7 +51,8 @@ export class LLMService {
   }
 
   private static getContentType(grade: string): string {
-    if (grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
+    if (grade.indexOf('K') !== -1 || grade.indexOf('1st') !== -1 || grade.indexOf('2nd') !== -1 || 
+        grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
       return 'sentences';
     } else {
       return 'paragraphs';
@@ -71,9 +72,14 @@ IMPORTANT: Include a mix of these error types:
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
 
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
-${grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1 
-  ? 'Keep it to 1-2 sentences maximum.' 
+${grade.indexOf('K') !== -1 || grade.indexOf('1st') !== -1 || grade.indexOf('2nd') !== -1 || 
+ grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1 
+  ? 'Keep it to 1-2 sentences maximum. Use simple, basic vocabulary appropriate for young children. Avoid complex words or concepts.' 
   : 'Make it 2-3 sentences that form a cohesive paragraph.'}
+
+${grade.indexOf('K') !== -1 ? 'Use very simple words and short sentences. Focus on basic concepts like colors, numbers, simple animals, or everyday objects.' : ''}
+${grade.indexOf('1st') !== -1 ? 'Use simple vocabulary and short sentences. Focus on familiar topics like family, school, pets, or basic activities.' : ''}
+${grade.indexOf('2nd') !== -1 ? 'Use age-appropriate vocabulary. Focus on familiar topics like friends, games, animals, or simple activities.' : ''}
 
 Respond ONLY with this exact JSON format (no other text):
 {
@@ -91,7 +97,8 @@ Respond ONLY with this exact JSON format (no other text):
   }
 
   private static getGradeDescription(grade: string): string {
-    if (grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
+    if (grade.indexOf('K') !== -1 || grade.indexOf('1st') !== -1 || grade.indexOf('2nd') !== -1 || 
+        grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1) {
       return 'elementary school';
     } else if (grade.indexOf('6th') !== -1 || grade.indexOf('7th') !== -1 || grade.indexOf('8th') !== -1) {
       return 'middle school';
