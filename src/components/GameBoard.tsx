@@ -249,23 +249,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* User Input */}
         <div className="mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
-          {corrections.length > 0 ? (
-            <div className="bg-white border border-gray-300 p-4 rounded-lg min-h-[100px]">
+          <textarea
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your corrected sentence here..."
+            className="input-field min-h-[100px] resize-none"
+            disabled={isComplete}
+          />
+        </div>
+
+        {/* Highlighted Preview */}
+        {corrections.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3">Your Changes:</h3>
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
               <div className="text-lg text-gray-800 whitespace-pre-wrap">
                 {renderHighlightedInput()}
               </div>
             </div>
-          ) : (
-            <textarea
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your corrected sentence here..."
-              className="input-field min-h-[100px] resize-none"
-              disabled={isComplete}
-            />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Legend for highlights */}
         {corrections.length > 0 && (
