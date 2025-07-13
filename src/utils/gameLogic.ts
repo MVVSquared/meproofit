@@ -4,63 +4,57 @@ export class GameLogic {
   static checkCorrections(
     userInput: string,
     correctSentence: string,
+    originalIncorrectSentence: string,
     errors: SentenceError[]
   ): Correction[] {
     const corrections: Correction[] = [];
     
-    // Create a map of expected corrections
+    // Create a map of expected corrections from the original sentence
     const expectedCorrections = new Map<string, string>();
     errors.forEach(error => {
       expectedCorrections.set(error.incorrectText, error.correctText);
     });
 
-    // Compare user input with correct sentence
+    // Split sentences into words for comparison
     const userWords = userInput.split(' ');
+    const originalWords = originalIncorrectSentence.split(' ');
     const correctWords = correctSentence.split(' ');
     
-    let userIndex = 0;
-    let correctIndex = 0;
-    
-    while (userIndex < userWords.length && correctIndex < correctWords.length) {
-      const userWord = userWords[userIndex];
-      const correctWord = correctWords[correctIndex];
+    // Only show feedback for words that the player actually changed
+    for (let i = 0; i < userWords.length && i < originalWords.length; i++) {
+      const userWord = userWords[i];
+      const originalWord = originalWords[i];
+      const correctWord = correctWords[i] || '';
       
-      if (userWord === correctWord) {
-        // Word is correct
-        userIndex++;
-        correctIndex++;
-      } else {
-        // Check if this is an expected correction
-        const expectedCorrection = expectedCorrections.get(userWord);
-        if (expectedCorrection && expectedCorrection === correctWord) {
+      // Only show feedback if the player changed this word from the original
+      if (userWord !== originalWord) {
+        // Check if their change was correct
+        if (userWord === correctWord) {
           corrections.push({
             type: 'correct',
-            originalText: userWord,
-            correctedText: correctWord,
-            position: userIndex
+            originalText: originalWord,
+            correctedText: userWord,
+            position: i
           });
         } else {
           corrections.push({
             type: 'incorrect',
-            originalText: userWord,
-            correctedText: correctWord,
-            position: userIndex
+            originalText: originalWord,
+            correctedText: userWord,
+            position: i
           });
         }
-        userIndex++;
-        correctIndex++;
       }
     }
     
-    // Handle extra or missing words
-    while (userIndex < userWords.length) {
+    // Handle case where user added extra words
+    for (let i = originalWords.length; i < userWords.length; i++) {
       corrections.push({
         type: 'incorrect',
-        originalText: userWords[userIndex],
-        correctedText: '',
-        position: userIndex
+        originalText: '',
+        correctedText: userWords[i],
+        position: i
       });
-      userIndex++;
     }
     
     return corrections;

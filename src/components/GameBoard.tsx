@@ -90,6 +90,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const newCorrections = GameLogic.checkCorrections(
       userInput,
       currentSentence.correctSentence,
+      currentSentence.incorrectSentence,
       currentSentence.errors
     );
     setCorrections(newCorrections);
