@@ -7,8 +7,10 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 export class LLMService {
   static async generateSentenceWithErrors(topic: string, difficulty: 'easy' | 'medium' | 'hard'): Promise<LLMResponse> {
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key not configured');
+    // Only use fallback if API key is completely missing
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'test_key' || OPENAI_API_KEY === 'disabled') {
+      console.log('Using fallback sentences - no valid API key');
+      return this.getFallbackSentence(topic);
     }
 
     const prompt = this.buildPrompt(topic, difficulty);
@@ -19,14 +21,14 @@ export class LLMService {
         messages: [
           {
             role: 'system',
-            content: 'You are an educational game assistant that creates sentences with intentional spelling and punctuation errors for 3rd-5th grade students.'
+            content: 'You are an educational game assistant that creates sentences with intentional spelling, punctuation, and capitalization errors for 3rd-5th grade students. Always respond with valid JSON only.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.8,
         max_tokens: 500
       }, {
         headers: {
@@ -38,17 +40,25 @@ export class LLMService {
       const content = response.data.choices[0].message.content;
       return this.parseLLMResponse(content);
     } catch (error) {
-      console.error('Error generating sentence:', error);
-      throw new Error('Failed to generate sentence with errors');
+      console.error('Error generating sentence with LLM:', error);
+      console.log('Falling back to predefined sentences');
+      return this.getFallbackSentence(topic);
     }
   }
 
   private static buildPrompt(topic: string, difficulty: string): string {
     const errorCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
     
-    return `Create a sentence about ${topic} with exactly ${errorCount} errors (mix of spelling, punctuation, and capitalization errors) for a ${difficulty} level 3rd-5th grade student.
+    return `Create a sentence about ${topic} with exactly ${errorCount} errors for a ${difficulty} level 3rd-5th grade student.
 
-Please respond in this exact JSON format:
+IMPORTANT: Include a mix of these error types:
+- SPELLING errors (common misspellings like "recieve" instead of "receive")
+- PUNCTUATION errors (missing commas, periods, apostrophes)
+- CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
+
+Make the sentence engaging and age-appropriate for 3rd-5th graders.
+
+Respond ONLY with this exact JSON format (no other text):
 {
   "incorrectSentence": "the sentence with errors",
   "correctSentence": "the sentence without errors",
@@ -60,9 +70,7 @@ Please respond in this exact JSON format:
       "position": 0
     }
   ]
-}
-
-Make sure the sentence is engaging and age-appropriate.`;
+}`;
   }
 
   private static parseLLMResponse(content: string): LLMResponse {
@@ -78,6 +86,14 @@ Make sure the sentence is engaging and age-appropriate.`;
       // Validate the response structure
       if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) {
         throw new Error('Invalid response structure');
+      }
+      
+      // Validate error types
+      const validTypes = ['spelling', 'punctuation', 'capitalization'];
+      for (const error of parsed.errors) {
+        if (!validTypes.includes(error.type)) {
+          throw new Error(`Invalid error type: ${error.type}`);
+        }
       }
       
       return parsed as LLMResponse;
