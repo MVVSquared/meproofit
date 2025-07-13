@@ -27,7 +27,6 @@ export class GameLogic {
     while (userIndex < userWords.length && originalIndex < originalWords.length) {
       const userWord = userWords[userIndex];
       const originalWord = originalWords[originalIndex];
-      const correctWord = correctWords[userIndex] || '';
       
       // If words match, move both indices forward
       if (userWord === originalWord) {
@@ -51,16 +50,16 @@ export class GameLogic {
       }
       
       // Check if user split a word (e.g., "Highschool" -> "High school")
-      if (originalWord && userWord && originalWord.length > userWord.length) {
+      if (originalWord && userWord && originalWord.length > userWord.length && userIndex + 1 < userWords.length) {
         const nextUserWord = userWords[userIndex + 1];
-        const combinedWords = userWord + (nextUserWord ? ' ' + nextUserWord : '');
+        const combinedWords = userWord + ' ' + nextUserWord;
         
         if (combinedWords === originalWord) {
           // User split a word correctly
           corrections.push({
             type: 'correct',
             originalText: originalWord,
-            correctedText: userWord + (nextUserWord ? ' ' + nextUserWord : ''),
+            correctedText: userWord + ' ' + nextUserWord,
             position: userIndex
           });
           userIndex += 2; // Skip both words
@@ -70,15 +69,15 @@ export class GameLogic {
       }
       
       // Check if user combined words (e.g., "High school" -> "Highschool")
-      if (userWord && originalWord && userWord.length > originalWord.length) {
+      if (userWord && originalWord && userWord.length > originalWord.length && originalIndex + 1 < originalWords.length) {
         const nextOriginalWord = originalWords[originalIndex + 1];
-        const combinedOriginal = originalWord + (nextOriginalWord ? ' ' + nextOriginalWord : '');
+        const combinedOriginal = originalWord + ' ' + nextOriginalWord;
         
         if (userWord === combinedOriginal) {
           // User combined words correctly
           corrections.push({
             type: 'correct',
-            originalText: originalWord + (nextOriginalWord ? ' ' + nextOriginalWord : ''),
+            originalText: originalWord + ' ' + nextOriginalWord,
             correctedText: userWord,
             position: userIndex
           });
