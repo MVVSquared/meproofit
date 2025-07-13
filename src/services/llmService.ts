@@ -132,9 +132,6 @@ Respond ONLY with this exact JSON format (no other text):
 
   // Fallback method for when LLM is not available
   static getFallbackSentence(topic: string, grade: string): LLMResponse {
-    // Check if this is a middle/high school grade
-    const isMiddleOrHighSchool = grade.indexOf('6th') !== -1 || grade.indexOf('7th') !== -1 || grade.indexOf('8th') !== -1 || 
-                                 grade.indexOf('9th') !== -1 || grade.indexOf('10th') !== -1 || grade.indexOf('11th') !== -1 || grade.indexOf('12th') !== -1;
     
     const fallbackSentences = {
       basketball: [

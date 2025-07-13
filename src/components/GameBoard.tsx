@@ -77,7 +77,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTopic, user.difficulty]);
+  }, [selectedTopic, user.difficulty, user.grade]);
 
   useEffect(() => {
     generateNewSentence();
