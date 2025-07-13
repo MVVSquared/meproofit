@@ -43,7 +43,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       
       const llmResponse = await LLMService.generateSentenceWithErrors(
         selectedTopic.name,
-        user.difficulty
+        user.difficulty,
+        user.grade
       );
 
       console.log('Generated sentence:', llmResponse.incorrectSentence);
@@ -63,7 +64,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       console.log('Using fallback sentence for topic:', selectedTopic.id);
       
       // Use fallback sentence
-      const fallback = LLMService.getFallbackSentence(selectedTopic.id);
+      const fallback = LLMService.getFallbackSentence(selectedTopic.id, user.grade);
       const gameSentence: GameSentence = {
         id: Date.now().toString(),
         incorrectSentence: fallback.incorrectSentence,

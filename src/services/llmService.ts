@@ -6,14 +6,18 @@ const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 export class LLMService {
-  static async generateSentenceWithErrors(topic: string, difficulty: 'easy' | 'medium' | 'hard'): Promise<LLMResponse> {
+  static async generateSentenceWithErrors(
+    topic: string, 
+    difficulty: 'easy' | 'medium' | 'hard',
+    grade: string
+  ): Promise<LLMResponse> {
     // Only use fallback if API key is completely missing
     if (!OPENAI_API_KEY || OPENAI_API_KEY === 'test_key' || OPENAI_API_KEY === 'disabled') {
       console.log('Using fallback sentences - no valid API key');
-      return this.getFallbackSentence(topic);
+      return this.getFallbackSentence(topic, grade);
     }
 
-    const prompt = this.buildPrompt(topic, difficulty);
+    const prompt = this.buildPrompt(topic, difficulty, grade);
     
     try {
       const response = await axios.post(OPENAI_API_URL, {
@@ -21,7 +25,7 @@ export class LLMService {
         messages: [
           {
             role: 'system',
-            content: 'You are an educational game assistant that creates sentences with intentional spelling, punctuation, and capitalization errors for 3rd-5th grade students. Always respond with valid JSON only.'
+            content: `You are an educational game assistant that creates ${this.getContentType(grade)} with intentional spelling, punctuation, and capitalization errors for ${grade} students. Always respond with valid JSON only.`
           },
           {
             role: 'user',
@@ -29,7 +33,7 @@ export class LLMService {
           }
         ],
         temperature: 0.8,
-        max_tokens: 500
+        max_tokens: 800
       }, {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -42,26 +46,39 @@ export class LLMService {
     } catch (error) {
       console.error('Error generating sentence with LLM:', error);
       console.log('Falling back to predefined sentences');
-      return this.getFallbackSentence(topic);
+      return this.getFallbackSentence(topic, grade);
     }
   }
 
-  private static buildPrompt(topic: string, difficulty: string): string {
+  private static getContentType(grade: string): string {
+    if (grade.includes('3rd') || grade.includes('4th') || grade.includes('5th')) {
+      return 'sentences';
+    } else {
+      return 'paragraphs';
+    }
+  }
+
+  private static buildPrompt(topic: string, difficulty: string, grade: string): string {
     const errorCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
+    const contentType = this.getContentType(grade);
+    const gradeDescription = this.getGradeDescription(grade);
     
-    return `Create a sentence about ${topic} with exactly ${errorCount} errors for a ${difficulty} level 3rd-5th grade student.
+    return `Create a ${contentType} about ${topic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student.
 
 IMPORTANT: Include a mix of these error types:
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
-- PUNCTUATION errors (missing commas, periods, apostrophes)
+- PUNCTUATION errors (missing commas, periods, apostrophes, semicolons)
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
 
-Make the sentence engaging and age-appropriate for 3rd-5th graders.
+Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
+${grade.includes('3rd') || grade.includes('4th') || grade.includes('5th') 
+  ? 'Keep it to 1-2 sentences maximum.' 
+  : 'Make it 2-3 sentences that form a cohesive paragraph.'}
 
 Respond ONLY with this exact JSON format (no other text):
 {
-  "incorrectSentence": "the sentence with errors",
-  "correctSentence": "the sentence without errors",
+  "incorrectSentence": "the ${contentType} with errors",
+  "correctSentence": "the ${contentType} without errors",
   "errors": [
     {
       "type": "spelling|punctuation|capitalization",
@@ -71,6 +88,16 @@ Respond ONLY with this exact JSON format (no other text):
     }
   ]
 }`;
+  }
+
+  private static getGradeDescription(grade: string): string {
+    if (grade.includes('3rd') || grade.includes('4th') || grade.includes('5th')) {
+      return 'elementary school';
+    } else if (grade.includes('6th') || grade.includes('7th') || grade.includes('8th')) {
+      return 'middle school';
+    } else {
+      return 'high school';
+    }
   }
 
   private static parseLLMResponse(content: string): LLMResponse {
@@ -104,9 +131,14 @@ Respond ONLY with this exact JSON format (no other text):
   }
 
   // Fallback method for when LLM is not available
-  static getFallbackSentence(topic: string): LLMResponse {
+  static getFallbackSentence(topic: string, grade: string): LLMResponse {
+    // Check if this is a middle/high school grade
+    const isMiddleOrHighSchool = grade.includes('6th') || grade.includes('7th') || grade.includes('8th') || 
+                                 grade.includes('9th') || grade.includes('10th') || grade.includes('11th') || grade.includes('12th');
+    
     const fallbackSentences = {
       basketball: [
+        // Elementary school sentences
         {
           incorrectSentence: "the basketball player shooted the ball into the hoop!",
           correctSentence: "The basketball player shot the ball into the hoop!",
@@ -122,9 +154,21 @@ Respond ONLY with this exact JSON format (no other text):
             { type: "capitalization" as const, incorrectText: "michael", correctText: "Michael", position: 0 },
             { type: "capitalization" as const, incorrectText: "jordan", correctText: "Jordan", position: 1 }
           ]
+        },
+        // Middle/High school paragraphs
+        {
+          incorrectSentence: "basketball was invented by dr james naismith in 1891. he created the game to keep his students active during the winter months. the first basketball game was played with a soccer ball and two peach baskets.",
+          correctSentence: "Basketball was invented by Dr. James Naismith in 1891. He created the game to keep his students active during the winter months. The first basketball game was played with a soccer ball and two peach baskets.",
+          errors: [
+            { type: "capitalization" as const, incorrectText: "basketball", correctText: "Basketball", position: 0 },
+            { type: "punctuation" as const, incorrectText: "dr james", correctText: "Dr. James", position: 3 },
+            { type: "capitalization" as const, incorrectText: "he", correctText: "He", position: 8 },
+            { type: "capitalization" as const, incorrectText: "the", correctText: "The", position: 12 }
+          ]
         }
       ],
       animals: [
+        // Elementary school sentences
         {
           incorrectSentence: "the cat sleeped peacefully on the soft bed.",
           correctSentence: "The cat slept peacefully on the soft bed.",
@@ -138,6 +182,16 @@ Respond ONLY with this exact JSON format (no other text):
           correctSentence: "Elephants are the biggest land animals in the world!",
           errors: [
             { type: "capitalization" as const, incorrectText: "elephants", correctText: "Elephants", position: 0 }
+          ]
+        },
+        // Middle/High school paragraphs
+        {
+          incorrectSentence: "lions are known as the kings of the jungle. they live in groups called prides and hunt together. female lions do most of the hunting for the pride.",
+          correctSentence: "Lions are known as the kings of the jungle. They live in groups called prides and hunt together. Female lions do most of the hunting for the pride.",
+          errors: [
+            { type: "capitalization" as const, incorrectText: "lions", correctText: "Lions", position: 0 },
+            { type: "capitalization" as const, incorrectText: "they", correctText: "They", position: 4 },
+            { type: "capitalization" as const, incorrectText: "female", correctText: "Female", position: 8 }
           ]
         }
       ],
