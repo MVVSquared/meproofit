@@ -34,17 +34,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setShowHint(false);
 
     try {
-      // Try to get sentence from LLM, fallback to predefined if API not available
-      let llmResponse;
-      try {
-        llmResponse = await LLMService.generateSentenceWithErrors(
-          selectedTopic.name,
-          'medium'
-        );
-      } catch (error) {
-        console.log('Using fallback sentence');
-        llmResponse = LLMService.getFallbackSentence(selectedTopic.id);
-      }
+      // Try to get sentence from LLM
+      console.log('Attempting to generate sentence for topic:', selectedTopic.name);
+      console.log('API Key status:', process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing');
+      
+      const llmResponse = await LLMService.generateSentenceWithErrors(
+        selectedTopic.name,
+        'medium'
+      );
+
+      console.log('Generated sentence:', llmResponse.incorrectSentence);
 
       const gameSentence: GameSentence = {
         id: Date.now().toString(),
@@ -58,6 +57,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       setCurrentSentence(gameSentence);
     } catch (error) {
       console.error('Error generating sentence:', error);
+      console.log('Using fallback sentence for topic:', selectedTopic.id);
+      
       // Use fallback sentence
       const fallback = LLMService.getFallbackSentence(selectedTopic.id);
       const gameSentence: GameSentence = {
