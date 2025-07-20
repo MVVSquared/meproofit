@@ -43,7 +43,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   const generateNewSentence = useCallback(async () => {
     setIsLoading(true);
-    setUserInput('');
     setAttempts(0);
     setCorrections([]);
     setAttemptHistory([]);
@@ -56,6 +55,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         console.log('Generating daily sentence for user:', user.name);
         const dailySentence = await DailySentenceService.getTodaysSentence(user);
         setCurrentSentence(dailySentence);
+        setUserInput(dailySentence.incorrectSentence); // Pre-fill with incorrect sentence
       } else {
         // Generate random sentence
         if (!selectedTopic) {
@@ -85,6 +85,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         };
 
         setCurrentSentence(gameSentence);
+        setUserInput(gameSentence.incorrectSentence); // Pre-fill with incorrect sentence
       }
     } catch (error) {
       console.error('Error generating sentence:', error);
@@ -98,6 +99,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           { id: 'fallback', name: 'Daily Challenge' }
         );
         setCurrentSentence(fallbackDaily);
+        setUserInput(fallbackDaily.incorrectSentence); // Pre-fill with incorrect sentence
       } else {
         // Use fallback sentence for random mode
         console.log('Using fallback sentence for topic:', selectedTopic?.id);
@@ -111,6 +113,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           errors: fallback.errors
         };
         setCurrentSentence(gameSentence);
+        setUserInput(gameSentence.incorrectSentence); // Pre-fill with incorrect sentence
       }
     } finally {
       setIsLoading(false);
