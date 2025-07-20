@@ -104,6 +104,13 @@ function App() {
     setCurrentView('game-board');
   };
 
+  const handleGradeChange = (newGrade: string) => {
+    // Create a temporary user with the new grade for this session
+    const tempUser = { ...user!, grade: newGrade };
+    setUser(tempUser);
+    // Stay on game board - the new sentence will be generated for the new grade
+  };
+
   const handleLogout = () => {
     setUser(null);
     setSelectedTopic(null);
@@ -197,6 +204,7 @@ function App() {
             onGameComplete={handleGameComplete}
             onBackToTopics={handleBackToTopics}
             onShowArchives={handleShowArchives}
+            onGradeChange={handleGradeChange}
           />
         )}
 

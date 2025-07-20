@@ -12,6 +12,7 @@ interface GameBoardProps {
   onGameComplete: (score: number) => void;
   onBackToTopics: () => void;
   onShowArchives: () => void;
+  onGradeChange?: (newGrade: string) => void;
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
@@ -20,7 +21,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   gameMode,
   onGameComplete,
   onBackToTopics,
-  onShowArchives
+  onShowArchives,
+  onGradeChange
 }) => {
   const [currentSentence, setCurrentSentence] = useState<GameSentence | null>(null);
   const [userInput, setUserInput] = useState('');
@@ -36,6 +38,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [isComplete, setIsComplete] = useState(false);
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [showGradeSelector, setShowGradeSelector] = useState(false);
+  const [selectedGradeForDaily, setSelectedGradeForDaily] = useState(user.grade);
 
   const generateNewSentence = useCallback(async () => {
     setIsLoading(true);
@@ -264,6 +268,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 >
                   Try Again
                 </button>
+                <button
+                  onClick={() => setShowGradeSelector(true)}
+                  className="btn-secondary"
+                >
+                  Try Different Grade
+                </button>
               </>
             ) : (
               <>
@@ -430,6 +440,78 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Grade Selector Modal */}
+      {showGradeSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Choose a Grade Level
+              </h3>
+              <p className="text-sm text-gray-600">
+                Select a different grade to try their daily challenge
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {[
+                { value: 'K', label: 'K' },
+                { value: '1st', label: '1st' },
+                { value: '2nd', label: '2nd' },
+                { value: '3rd', label: '3rd' },
+                { value: '4th', label: '4th' },
+                { value: '5th', label: '5th' },
+                { value: 'middle', label: 'Middle' },
+                { value: 'high', label: 'High' },
+                { value: 'beyond', label: 'Beyond' }
+              ].map((grade) => (
+                <button
+                  key={grade.value}
+                  onClick={() => setSelectedGradeForDaily(grade.value)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    selectedGradeForDaily === grade.value
+                      ? 'bg-primary-500 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
+                  }`}
+                >
+                  {grade.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+              <p className="text-sm text-blue-800">
+                <strong>Selected:</strong> {selectedGradeForDaily} Grade
+                {selectedGradeForDaily === user.grade && (
+                  <span className="ml-2 text-blue-600">(Your default grade)</span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+                              <button
+                  onClick={() => {
+                    setShowGradeSelector(false);
+                    // Call parent handler to change grade
+                    if (onGradeChange) {
+                      onGradeChange(selectedGradeForDaily);
+                    }
+                  }}
+                  className="btn-primary flex-1"
+                >
+                  Try This Grade
+                </button>
+              <button
+                onClick={() => setShowGradeSelector(false)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 
