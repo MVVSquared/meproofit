@@ -3,7 +3,7 @@ import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '
 import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { RotateCcw, Archive } from 'lucide-react';
+import { RotateCcw, Archive, GraduationCap } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic | null;
@@ -273,8 +273,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 </button>
                 <button
                   onClick={() => setShowGradeSelector(true)}
-                  className="btn-secondary"
+                  className="btn-primary flex items-center justify-center gap-2"
                 >
+                  <GraduationCap size={20} />
                   Try Different Grade
                 </button>
               </>
