@@ -67,24 +67,43 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
 
       {/* Grade Selector */}
       <div className="card mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">View Archives for:</h2>
-            <p className="text-sm text-gray-600">
-              Select a grade to see past daily challenges
-            </p>
-          </div>
-          <select
-            value={selectedGrade}
-            onChange={(e) => setSelectedGrade(e.target.value)}
-            className="input-field max-w-xs"
-          >
-            {gradeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+        <div className="text-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Browse Daily Challenges</h2>
+          <p className="text-sm text-gray-600">
+            Select a grade level to explore past daily sentences
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+          {gradeOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setSelectedGrade(option.value)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                selectedGrade === option.value
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
+              }`}
+            >
+              {option.value}
+            </button>
+          ))}
+        </div>
+        
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-500">
+            Currently viewing: <span className="font-medium text-primary-600">{getGradeLabel(selectedGrade)}</span>
+            {selectedGrade !== user.grade && (
+              <span className="ml-2">
+                • <button 
+                  onClick={() => setSelectedGrade(user.grade)}
+                  className="text-primary-600 hover:text-primary-700 underline"
+                >
+                  Switch to your grade ({user.grade})
+                </button>
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -98,11 +117,17 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
         <div className="card text-center">
           <div className="text-4xl mb-4">📚</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No Archives Yet
+            No Archives Yet for {getGradeLabel(selectedGrade)}
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             Complete some daily challenges for {getGradeLabel(selectedGrade)} to see them here!
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Tip:</strong> Try selecting a different grade level above to explore daily challenges from other grade levels. 
+              You can practice with easier or more challenging content!
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
