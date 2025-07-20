@@ -494,11 +494,31 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
             <div className="flex gap-3">
                               <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowGradeSelector(false);
-                    // Call parent handler to change grade
-                    if (onGradeChange) {
-                      onGradeChange(selectedGradeForDaily);
+                    setIsLoading(true);
+                    
+                    try {
+                      // Generate new daily sentence for the selected grade
+                      const tempUser = { ...user, grade: selectedGradeForDaily };
+                      const newSentence = await DailySentenceService.getTodaysSentence(tempUser);
+                      
+                      setCurrentSentence(newSentence);
+                      setUserInput(newSentence.incorrectSentence);
+                      setAttempts(0);
+                      setCorrections([]);
+                      setAttemptHistory([]);
+                      setIsComplete(false);
+                      setShowHint(false);
+                      
+                      // Call parent handler to update user grade
+                      if (onGradeChange) {
+                        onGradeChange(selectedGradeForDaily);
+                      }
+                    } catch (error) {
+                      console.error('Error generating sentence for new grade:', error);
+                    } finally {
+                      setIsLoading(false);
                     }
                   }}
                   className="btn-primary flex-1"
