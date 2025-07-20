@@ -78,11 +78,21 @@ export class DatabaseService {
   }
 
   static async updateUserStats(userId: string, score: number) {
+    // First get current stats
+    const { data: currentStats, error: fetchError } = await supabase
+      .from('user_profiles')
+      .select('total_score, games_played')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Then update with new values
     const { error } = await supabase
       .from('user_profiles')
       .update({
-        total_score: supabase.sql`total_score + ${score}`,
-        games_played: supabase.sql`games_played + 1`,
+        total_score: (currentStats?.total_score || 0) + score,
+        games_played: (currentStats?.games_played || 0) + 1,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId);
@@ -223,10 +233,20 @@ export class DatabaseService {
   }
 
   static async updateSentenceUsage(sentenceId: string) {
+    // First get current usage count
+    const { data: currentUsage, error: fetchError } = await supabase
+      .from('sentence_cache')
+      .select('usage_count')
+      .eq('id', sentenceId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Then update with new count
     const { error } = await supabase
       .from('sentence_cache')
       .update({
-        usage_count: supabase.sql`usage_count + 1`,
+        usage_count: (currentUsage?.usage_count || 0) + 1,
         last_used_at: new Date().toISOString()
       })
       .eq('id', sentenceId);
