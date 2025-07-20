@@ -5,10 +5,11 @@ import { GameBoard } from './components/GameBoard';
 import { UserSetup } from './components/UserSetup';
 import { GameModeSelector } from './components/GameModeSelector';
 import { DailyArchives } from './components/DailyArchives';
+import { UserSettings } from './components/UserSettings';
 import { TOPICS } from './data/topics';
 
 
-type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives';
+type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives' | 'user-settings';
 
 function App() {
   const [currentView, setCurrentView] = useState<GameView>('user-setup');
@@ -90,6 +91,19 @@ function App() {
     setCurrentView('game-board');
   };
 
+  const handleShowSettings = () => {
+    setCurrentView('user-settings');
+  };
+
+  const handleBackFromSettings = () => {
+    setCurrentView('game-board');
+  };
+
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser);
+    setCurrentView('game-board');
+  };
+
   const handleLogout = () => {
     setUser(null);
     setSelectedTopic(null);
@@ -141,12 +155,20 @@ function App() {
                   </div>
                 )}
                 
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Logout
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleShowSettings}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Settings
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -180,6 +202,14 @@ function App() {
 
         {currentView === 'daily-archives' && user && (
           <DailyArchives user={user} onBack={handleBackFromArchives} />
+        )}
+
+        {currentView === 'user-settings' && user && (
+          <UserSettings 
+            user={user} 
+            onBack={handleBackFromSettings} 
+            onUserUpdate={handleUserUpdate}
+          />
         )}
       </main>
 
