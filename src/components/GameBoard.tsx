@@ -216,7 +216,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               onClick={onBackToTopics}
               className="btn-secondary"
             >
-              Choose Different Topic
+              New Topic
             </button>
           </div>
         </div>
@@ -244,7 +244,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <div>
               <h2 className="text-xl font-semibold text-gray-900">{selectedTopic.name}</h2>
               <p className="text-sm text-gray-500">
-                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade})
+                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade}) • Random Topic
               </p>
             </div>
           </div>
@@ -252,7 +252,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             onClick={onBackToTopics}
             className="btn-secondary text-sm"
           >
-            Change Topic
+            New Topic
           </button>
         </div>
 

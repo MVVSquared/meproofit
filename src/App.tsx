@@ -3,6 +3,7 @@ import { Topic, User } from './types';
 import { TopicSelector } from './components/TopicSelector';
 import { GameBoard } from './components/GameBoard';
 import { UserSetup } from './components/UserSetup';
+import { TOPICS } from './data/topics';
 
 type GameView = 'user-setup' | 'topic-selector' | 'game-board';
 
@@ -13,6 +14,12 @@ function App() {
   const [totalScore, setTotalScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
 
+  // Function to randomly select a topic
+  const selectRandomTopic = (): Topic => {
+    const randomIndex = Math.floor(Math.random() * TOPICS.length);
+    return TOPICS[randomIndex];
+  };
+
   // Check for existing user on app load
   useEffect(() => {
     const savedUser = localStorage.getItem('meproofit-user');
@@ -20,7 +27,10 @@ function App() {
       try {
         const userData = JSON.parse(savedUser);
         setUser(userData);
-        setCurrentView('topic-selector');
+        // Automatically select a random topic instead of showing topic selector
+        const randomTopic = selectRandomTopic();
+        setSelectedTopic(randomTopic);
+        setCurrentView('game-board');
       } catch (error) {
         console.error('Error loading saved user:', error);
         localStorage.removeItem('meproofit-user');
@@ -30,7 +40,10 @@ function App() {
 
   const handleUserSetup = (userData: User) => {
     setUser(userData);
-    setCurrentView('topic-selector');
+    // Automatically select a random topic instead of showing topic selector
+    const randomTopic = selectRandomTopic();
+    setSelectedTopic(randomTopic);
+    setCurrentView('game-board');
   };
 
   const handleTopicSelect = (topic: Topic) => {
@@ -44,7 +57,10 @@ function App() {
   };
 
   const handleBackToTopics = () => {
-    setCurrentView('topic-selector');
+    // Instead of going back to topic selector, select a new random topic
+    const randomTopic = selectRandomTopic();
+    setSelectedTopic(randomTopic);
+    // Stay on game board with new topic
   };
 
   const handleLogout = () => {
