@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { User, DailySentence, ArchiveEntry, GameSentence, LLMResponse } from '../types';
+import { DailySentence, ArchiveEntry, GameSentence, LLMResponse } from '../types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
