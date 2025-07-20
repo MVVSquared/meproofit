@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArchiveEntry, User } from '../types';
 import { DailySentenceService } from '../services/dailySentenceService';
-import { ArrowLeft, Calendar, Trophy, Target } from 'lucide-react';
+import { ArrowLeft, Calendar, Trophy } from 'lucide-react';
 
 interface DailyArchivesProps {
   user: User;
@@ -25,16 +25,16 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
     { value: 'beyond', label: 'Beyond' }
   ];
 
-  useEffect(() => {
-    loadArchives();
-  }, [selectedGrade]);
-
-  const loadArchives = () => {
+  const loadArchives = useCallback(() => {
     setIsLoading(true);
     const gradeArchives = DailySentenceService.getArchiveForGrade(selectedGrade);
     setArchives(gradeArchives);
     setIsLoading(false);
-  };
+  }, [selectedGrade]);
+
+  useEffect(() => {
+    loadArchives();
+  }, [loadArchives]);
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);

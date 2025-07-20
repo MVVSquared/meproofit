@@ -6,7 +6,7 @@ import { UserSetup } from './components/UserSetup';
 import { GameModeSelector } from './components/GameModeSelector';
 import { DailyArchives } from './components/DailyArchives';
 import { TOPICS } from './data/topics';
-import { DailySentenceService } from './services/dailySentenceService';
+
 
 type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives';
 
