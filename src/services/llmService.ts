@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { LLMResponse } from '../types';
+import { DatabaseService } from './databaseService';
 
 // You'll need to set up your OpenAI API key in environment variables
 const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
@@ -15,6 +16,21 @@ export class LLMService {
     if (!OPENAI_API_KEY || OPENAI_API_KEY === 'test_key' || OPENAI_API_KEY === 'disabled') {
       console.log('Using fallback sentences - no valid API key');
       return this.getFallbackSentence(topic, grade);
+    }
+
+    // First, try to get a cached sentence from the database
+    try {
+      const cachedSentence = await DatabaseService.getCachedSentence(topic, grade, difficulty);
+      if (cachedSentence) {
+        console.log('Using cached sentence for topic:', topic);
+        return {
+          incorrectSentence: cachedSentence.incorrectSentence,
+          correctSentence: cachedSentence.correctSentence,
+          errors: cachedSentence.errors
+        };
+      }
+    } catch (error) {
+      console.log('Cache lookup failed, generating new sentence:', error);
     }
 
     const prompt = this.buildPrompt(topic, difficulty, grade);
@@ -42,7 +58,18 @@ export class LLMService {
       });
 
       const content = response.data.choices[0].message.content;
-      return this.parseLLMResponse(content);
+      const llmResponse = this.parseLLMResponse(content);
+
+      // Cache the generated sentence in the database
+      try {
+        await DatabaseService.cacheSentence(llmResponse, topic, grade, difficulty);
+        console.log('Cached new sentence for topic:', topic);
+      } catch (cacheError) {
+        console.error('Failed to cache sentence:', cacheError);
+        // Don't throw error - sentence generation was successful
+      }
+
+      return llmResponse;
     } catch (error) {
       console.error('Error generating sentence with LLM:', error);
       console.log('Falling back to predefined sentences');
