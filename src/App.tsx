@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Topic, User } from './types';
+import { Topic, User, GameMode } from './types';
 import { TopicSelector } from './components/TopicSelector';
 import { GameBoard } from './components/GameBoard';
 import { UserSetup } from './components/UserSetup';
+import { GameModeSelector } from './components/GameModeSelector';
+import { DailyArchives } from './components/DailyArchives';
 import { TOPICS } from './data/topics';
+import { DailySentenceService } from './services/dailySentenceService';
 
-type GameView = 'user-setup' | 'topic-selector' | 'game-board';
+type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives';
 
 function App() {
   const [currentView, setCurrentView] = useState<GameView>('user-setup');
   const [user, setUser] = useState<User | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [totalScore, setTotalScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
 
@@ -27,10 +31,8 @@ function App() {
       try {
         const userData = JSON.parse(savedUser);
         setUser(userData);
-        // Automatically select a random topic instead of showing topic selector
-        const randomTopic = selectRandomTopic();
-        setSelectedTopic(randomTopic);
-        setCurrentView('game-board');
+        // Show game mode selector instead of going directly to game
+        setCurrentView('game-mode-selector');
       } catch (error) {
         console.error('Error loading saved user:', error);
         localStorage.removeItem('meproofit-user');
@@ -40,10 +42,22 @@ function App() {
 
   const handleUserSetup = (userData: User) => {
     setUser(userData);
-    // Automatically select a random topic instead of showing topic selector
-    const randomTopic = selectRandomTopic();
-    setSelectedTopic(randomTopic);
-    setCurrentView('game-board');
+    // Show game mode selector after user setup
+    setCurrentView('game-mode-selector');
+  };
+
+  const handleGameModeSelect = (mode: GameMode) => {
+    setGameMode(mode);
+    
+    if (mode === 'daily') {
+      // For daily mode, we don't need a topic - it will be determined by the daily service
+      setCurrentView('game-board');
+    } else {
+      // For random mode, select a random topic and go to game board
+      const randomTopic = selectRandomTopic();
+      setSelectedTopic(randomTopic);
+      setCurrentView('game-board');
+    }
   };
 
   const handleTopicSelect = (topic: Topic) => {
@@ -57,15 +71,29 @@ function App() {
   };
 
   const handleBackToTopics = () => {
-    // Instead of going back to topic selector, select a new random topic
-    const randomTopic = selectRandomTopic();
-    setSelectedTopic(randomTopic);
-    // Stay on game board with new topic
+    if (gameMode === 'daily') {
+      // For daily mode, stay on game board (daily sentences don't change topics)
+      return;
+    } else {
+      // For random mode, select a new random topic
+      const randomTopic = selectRandomTopic();
+      setSelectedTopic(randomTopic);
+      // Stay on game board with new topic
+    }
+  };
+
+  const handleShowArchives = () => {
+    setCurrentView('daily-archives');
+  };
+
+  const handleBackFromArchives = () => {
+    setCurrentView('game-board');
   };
 
   const handleLogout = () => {
     setUser(null);
     setSelectedTopic(null);
+    setGameMode(null);
     setTotalScore(0);
     setGamesPlayed(0);
     localStorage.removeItem('meproofit-user');
@@ -91,6 +119,12 @@ function App() {
                   <span className="font-medium">Welcome, {user.name}!</span>
                   <span className="mx-2">•</span>
                   <span>{user.grade}</span>
+                  {gameMode && (
+                    <>
+                      <span className="mx-2">•</span>
+                      <span className="capitalize">{gameMode} Mode</span>
+                    </>
+                  )}
                 </div>
                 
                 {gamesPlayed > 0 && (
@@ -125,17 +159,27 @@ function App() {
           <UserSetup onUserSetup={handleUserSetup} />
         )}
         
+        {currentView === 'game-mode-selector' && user && (
+          <GameModeSelector user={user} onModeSelect={handleGameModeSelect} />
+        )}
+        
         {currentView === 'topic-selector' && user && (
           <TopicSelector onTopicSelect={handleTopicSelect} />
         )}
         
-        {currentView === 'game-board' && selectedTopic && user && (
+        {currentView === 'game-board' && user && (
           <GameBoard
             selectedTopic={selectedTopic}
             user={user}
+            gameMode={gameMode}
             onGameComplete={handleGameComplete}
             onBackToTopics={handleBackToTopics}
+            onShowArchives={handleShowArchives}
           />
+        )}
+
+        {currentView === 'daily-archives' && user && (
+          <DailyArchives user={user} onBack={handleBackFromArchives} />
         )}
       </main>
 

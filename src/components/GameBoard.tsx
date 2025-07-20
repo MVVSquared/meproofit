@@ -1,21 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Topic, GameSentence, Correction, User } from '../types';
+import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '../types';
 import { LLMService } from '../services/llmService';
+import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Archive } from 'lucide-react';
 
 interface GameBoardProps {
-  selectedTopic: Topic;
+  selectedTopic: Topic | null;
   user: User;
+  gameMode: GameMode | null;
   onGameComplete: (score: number) => void;
   onBackToTopics: () => void;
+  onShowArchives: () => void;
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   selectedTopic,
   user,
+  gameMode,
   onGameComplete,
-  onBackToTopics
+  onBackToTopics,
+  onShowArchives
 }) => {
   const [currentSentence, setCurrentSentence] = useState<GameSentence | null>(null);
   const [userInput, setUserInput] = useState('');
@@ -42,48 +47,71 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setShowHint(false);
 
     try {
-      // Try to get sentence from LLM using user's difficulty level
-      console.log('Attempting to generate sentence for topic:', selectedTopic.name);
-      console.log('API Key status:', process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing');
-      console.log('User difficulty:', user.difficulty);
-      
-      const llmResponse = await LLMService.generateSentenceWithErrors(
-        selectedTopic.name,
-        user.difficulty,
-        user.grade
-      );
+      if (gameMode === 'daily') {
+        // Generate daily sentence
+        console.log('Generating daily sentence for user:', user.name);
+        const dailySentence = await DailySentenceService.getTodaysSentence(user);
+        setCurrentSentence(dailySentence);
+      } else {
+        // Generate random sentence
+        if (!selectedTopic) {
+          console.error('No topic selected for random mode');
+          return;
+        }
+        
+        console.log('Attempting to generate sentence for topic:', selectedTopic.name);
+        console.log('API Key status:', process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing');
+        console.log('User difficulty:', user.difficulty);
+        
+        const llmResponse = await LLMService.generateSentenceWithErrors(
+          selectedTopic.name,
+          user.difficulty,
+          user.grade
+        );
 
-      console.log('Generated sentence:', llmResponse.incorrectSentence);
+        console.log('Generated sentence:', llmResponse.incorrectSentence);
 
-      const gameSentence: GameSentence = {
-        id: Date.now().toString(),
-        incorrectSentence: llmResponse.incorrectSentence,
-        correctSentence: llmResponse.correctSentence,
-        topic: selectedTopic.name,
-        difficulty: user.difficulty,
-        errors: llmResponse.errors
-      };
+        const gameSentence: GameSentence = {
+          id: Date.now().toString(),
+          incorrectSentence: llmResponse.incorrectSentence,
+          correctSentence: llmResponse.correctSentence,
+          topic: selectedTopic.name,
+          difficulty: user.difficulty,
+          errors: llmResponse.errors
+        };
 
-      setCurrentSentence(gameSentence);
+        setCurrentSentence(gameSentence);
+      }
     } catch (error) {
       console.error('Error generating sentence:', error);
-      console.log('Using fallback sentence for topic:', selectedTopic.id);
       
-      // Use fallback sentence
-      const fallback = LLMService.getFallbackSentence(selectedTopic.id, user.grade);
-      const gameSentence: GameSentence = {
-        id: Date.now().toString(),
-        incorrectSentence: fallback.incorrectSentence,
-        correctSentence: fallback.correctSentence,
-        topic: selectedTopic.name,
-        difficulty: user.difficulty,
-        errors: fallback.errors
-      };
-      setCurrentSentence(gameSentence);
+      if (gameMode === 'daily') {
+        // For daily mode, we need to handle this differently
+        console.log('Using fallback daily sentence');
+        const fallbackDaily = DailySentenceService.getFallbackDailySentence(
+          DailySentenceService.getTodayDate(),
+          user.grade,
+          { id: 'fallback', name: 'Daily Challenge' }
+        );
+        setCurrentSentence(fallbackDaily);
+      } else {
+        // Use fallback sentence for random mode
+        console.log('Using fallback sentence for topic:', selectedTopic?.id);
+        const fallback = LLMService.getFallbackSentence(selectedTopic?.id || 'basketball', user.grade);
+        const gameSentence: GameSentence = {
+          id: Date.now().toString(),
+          incorrectSentence: fallback.incorrectSentence,
+          correctSentence: fallback.correctSentence,
+          topic: selectedTopic?.name || 'Basketball',
+          difficulty: user.difficulty,
+          errors: fallback.errors
+        };
+        setCurrentSentence(gameSentence);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTopic, user.difficulty, user.grade]);
+  }, [selectedTopic, user, gameMode]);
 
   useEffect(() => {
     generateNewSentence();
@@ -123,6 +151,20 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       const finalScore = GameLogic.calculateScore(newAttempts, maxAttempts, newCorrections);
       setScore(finalScore);
       setIsComplete(true);
+
+      // Save daily result if in daily mode
+      if (gameMode === 'daily' && currentSentence) {
+        const dailySentence = currentSentence as DailySentence;
+        DailySentenceService.saveDailyResult(
+          dailySentence.date,
+          dailySentence.grade,
+          dailySentence.topic,
+          dailySentence.incorrectSentence,
+          dailySentence.correctSentence,
+          finalScore,
+          newAttempts
+        );
+      }
     }
   };
 
@@ -174,7 +216,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       <div className="max-w-2xl mx-auto p-6">
         <div className="card text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Generating your sentence...</p>
+          <p className="text-lg text-gray-600">
+            {gameMode === 'daily' ? 'Loading today\'s challenge...' : 'Generating your sentence...'}
+          </p>
         </div>
       </div>
     );
@@ -205,19 +249,39 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={generateNewSentence}
-              className="btn-primary flex items-center justify-center gap-2"
-            >
-              <RotateCcw size={20} />
-              New Sentence
-            </button>
-            <button
-              onClick={onBackToTopics}
-              className="btn-secondary"
-            >
-              New Topic
-            </button>
+            {gameMode === 'daily' ? (
+              <>
+                <button
+                  onClick={onShowArchives}
+                  className="btn-primary flex items-center justify-center gap-2"
+                >
+                  <Archive size={20} />
+                  View Archives
+                </button>
+                <button
+                  onClick={generateNewSentence}
+                  className="btn-secondary"
+                >
+                  Try Again
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={generateNewSentence}
+                  className="btn-primary flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={20} />
+                  New Sentence
+                </button>
+                <button
+                  onClick={onBackToTopics}
+                  className="btn-secondary"
+                >
+                  New Topic
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -240,20 +304,37 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{selectedTopic.icon}</span>
+            <span className="text-2xl">
+              {gameMode === 'daily' ? '📅' : selectedTopic?.icon || '🎯'}
+            </span>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{selectedTopic.name}</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {gameMode === 'daily' ? 'Daily Challenge' : selectedTopic?.name || 'Game'}
+              </h2>
               <p className="text-sm text-gray-500">
-                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade}) • Random Topic
+                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade}) • {gameMode === 'daily' ? 'Daily Mode' : 'Random Topic'}
               </p>
             </div>
           </div>
-          <button
-            onClick={onBackToTopics}
-            className="btn-secondary text-sm"
-          >
-            New Topic
-          </button>
+          <div className="flex gap-2">
+            {gameMode === 'daily' && (
+              <button
+                onClick={onShowArchives}
+                className="btn-secondary text-sm flex items-center gap-1"
+              >
+                <Archive size={16} />
+                Archives
+              </button>
+            )}
+            {gameMode !== 'daily' && (
+              <button
+                onClick={onBackToTopics}
+                className="btn-secondary text-sm"
+              >
+                New Topic
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Original Sentence */}

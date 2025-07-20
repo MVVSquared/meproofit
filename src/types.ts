@@ -11,6 +11,8 @@ export interface User {
   difficulty: 'easy' | 'medium' | 'hard';
 }
 
+export type GameMode = 'daily' | 'random';
+
 export interface GameSentence {
   id: string;
   incorrectSentence: string;
@@ -18,6 +20,22 @@ export interface GameSentence {
   topic: string;
   difficulty: 'easy' | 'medium' | 'hard';
   errors: SentenceError[];
+}
+
+export interface DailySentence extends GameSentence {
+  date: string; // YYYY-MM-DD format
+  grade: string;
+  isDaily: true;
+}
+
+export interface ArchiveEntry {
+  date: string;
+  grade: string;
+  topic: string;
+  incorrectSentence: string;
+  correctSentence: string;
+  userScore?: number;
+  userAttempts?: number;
 }
 
 export interface SentenceError {
