@@ -497,29 +497,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                               <button
                   onClick={async () => {
                     setShowGradeSelector(false);
-                    setIsLoading(true);
                     
-                    try {
-                      // Generate new daily sentence for the selected grade
-                      const tempUser = { ...user, grade: selectedGradeForDaily };
-                      const newSentence = await DailySentenceService.getTodaysSentence(tempUser);
-                      
-                      setCurrentSentence(newSentence);
-                      setUserInput(newSentence.incorrectSentence);
-                      setAttempts(0);
-                      setCorrections([]);
-                      setAttemptHistory([]);
-                      setIsComplete(false);
-                      setShowHint(false);
-                      
-                      // Call parent handler to update user grade
-                      if (onGradeChange) {
-                        onGradeChange(selectedGradeForDaily);
-                      }
-                    } catch (error) {
-                      console.error('Error generating sentence for new grade:', error);
-                    } finally {
-                      setIsLoading(false);
+                    // Call parent handler to update user grade
+                    if (onGradeChange) {
+                      onGradeChange(selectedGradeForDaily);
                     }
                   }}
                   className="btn-primary flex-1"

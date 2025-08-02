@@ -228,6 +228,7 @@ function App() {
         
         {currentView === 'game-board' && user && (
           <GameBoard
+            key={`${gameMode}-${getEffectiveGrade()}`}
             selectedTopic={selectedTopic}
             user={getEffectiveUser()!}
             gameMode={gameMode}
