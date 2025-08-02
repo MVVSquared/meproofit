@@ -18,6 +18,7 @@ function App() {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [totalScore, setTotalScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [tempGradeForDaily, setTempGradeForDaily] = useState<string | null>(null);
 
   // Function to randomly select a topic
   const selectRandomTopic = (): Topic => {
@@ -49,6 +50,8 @@ function App() {
 
   const handleGameModeSelect = (mode: GameMode) => {
     setGameMode(mode);
+    // Reset temp grade when starting a new game mode
+    setTempGradeForDaily(null);
     
     if (mode === 'daily') {
       // For daily mode, we don't need a topic - it will be determined by the daily service
@@ -105,9 +108,14 @@ function App() {
   };
 
   const handleGradeChange = (newGrade: string) => {
-    // Create a temporary user with the new grade for this session
-    const tempUser = { ...user!, grade: newGrade };
-    setUser(tempUser);
+    // For daily mode, only temporarily change the grade without affecting the profile
+    if (gameMode === 'daily') {
+      setTempGradeForDaily(newGrade);
+    } else {
+      // For random mode, create a temporary user with the new grade for this session
+      const tempUser = { ...user!, grade: newGrade };
+      setUser(tempUser);
+    }
     // Stay on game board - the new sentence will be generated for the new grade
   };
 
@@ -117,8 +125,27 @@ function App() {
     setGameMode(null);
     setTotalScore(0);
     setGamesPlayed(0);
+    setTempGradeForDaily(null);
     localStorage.removeItem('meproofit-user');
     setCurrentView('user-setup');
+  };
+
+  // Get the effective grade for the current game session
+  const getEffectiveGrade = (): string => {
+    if (gameMode === 'daily' && tempGradeForDaily) {
+      return tempGradeForDaily;
+    }
+    return user?.grade || '';
+  };
+
+  // Get the effective user for the current game session
+  const getEffectiveUser = (): User | null => {
+    if (!user) return null;
+    
+    if (gameMode === 'daily' && tempGradeForDaily) {
+      return { ...user, grade: tempGradeForDaily };
+    }
+    return user;
   };
 
   return (
@@ -139,12 +166,15 @@ function App() {
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">Welcome, {user.name}!</span>
                   <span className="mx-2">•</span>
-                  <span>{user.grade}</span>
+                  <span>{getEffectiveGrade()}</span>
                   {gameMode && (
                     <>
                       <span className="mx-2">•</span>
                       <span className="capitalize">{gameMode} Mode</span>
                     </>
+                  )}
+                  {gameMode === 'daily' && tempGradeForDaily && tempGradeForDaily !== user.grade && (
+                    <span className="ml-2 text-xs text-blue-600">(Temporary grade)</span>
                   )}
                 </div>
                 
@@ -199,7 +229,7 @@ function App() {
         {currentView === 'game-board' && user && (
           <GameBoard
             selectedTopic={selectedTopic}
-            user={user}
+            user={getEffectiveUser()!}
             gameMode={gameMode}
             onGameComplete={handleGameComplete}
             onBackToTopics={handleBackToTopics}
