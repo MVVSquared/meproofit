@@ -118,7 +118,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTopic, user.grade, gameMode]);
+  }, [selectedTopic, user, gameMode]);
 
   useEffect(() => {
     generateNewSentence();
