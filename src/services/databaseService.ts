@@ -236,22 +236,22 @@ export class DatabaseService {
       .eq('grade', grade)
       .eq('difficulty', difficulty)
       .order('usage_count', { ascending: true })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     
-    if (data) {
+    if (data && data.length > 0) {
+      const cachedSentence = data[0];
       // Update usage count
-      await this.updateSentenceUsage(data.id);
+      await this.updateSentenceUsage(cachedSentence.id);
       
       return {
-        id: data.id,
-        incorrectSentence: data.incorrect_sentence,
-        correctSentence: data.correct_sentence,
-        topic: data.topic,
-        difficulty: data.difficulty as 'easy' | 'medium' | 'hard',
-        errors: data.errors
+        id: cachedSentence.id,
+        incorrectSentence: cachedSentence.incorrect_sentence,
+        correctSentence: cachedSentence.correct_sentence,
+        topic: cachedSentence.topic,
+        difficulty: cachedSentence.difficulty as 'easy' | 'medium' | 'hard',
+        errors: cachedSentence.errors
       };
     }
 
