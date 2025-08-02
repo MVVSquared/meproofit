@@ -3,7 +3,7 @@ import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '
 import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { RotateCcw, Archive, GraduationCap } from 'lucide-react';
+import { RotateCcw, Archive } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic | null;
