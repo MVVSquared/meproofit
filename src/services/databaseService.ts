@@ -2,14 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 import { DailySentence, ArchiveEntry, GameSentence, LLMResponse } from '../types';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Check if Supabase is configured
+const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+
+const supabase = isSupabaseConfigured 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 export class DatabaseService {
   // User Management
   static async signUp(email: string, password: string, userData: { name: string; grade: string; difficulty: string }) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -33,6 +41,9 @@ export class DatabaseService {
   }
 
   static async signIn(email: string, password: string) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -43,17 +54,26 @@ export class DatabaseService {
   }
 
   static async signOut() {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }
 
   static async getCurrentUser() {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) throw error;
     return user;
   }
 
   static async createUserProfile(userId: string, userData: { name: string; grade: string; difficulty: string }) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { error } = await supabase
       .from('user_profiles')
       .insert({
@@ -67,6 +87,9 @@ export class DatabaseService {
   }
 
   static async getUserProfile(userId: string) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
@@ -78,6 +101,9 @@ export class DatabaseService {
   }
 
   static async updateUserStats(userId: string, score: number) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     // First get current stats
     const { data: currentStats, error: fetchError } = await supabase
       .from('user_profiles')
@@ -102,6 +128,9 @@ export class DatabaseService {
 
   // Daily Sentences
   static async getDailySentence(date: string, grade: string): Promise<DailySentence | null> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('daily_sentences')
       .select('*')
@@ -113,6 +142,9 @@ export class DatabaseService {
   }
 
   static async createDailySentence(dailySentence: DailySentence) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { error } = await supabase
       .from('daily_sentences')
       .insert({
@@ -137,6 +169,9 @@ export class DatabaseService {
     userInput: string,
     corrections: any[]
   ) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { error } = await supabase
       .from('user_daily_results')
       .upsert({
@@ -157,6 +192,9 @@ export class DatabaseService {
   }
 
   static async getUserDailyResults(userId: string, grade: string): Promise<ArchiveEntry[]> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('user_daily_results')
       .select(`
@@ -188,6 +226,9 @@ export class DatabaseService {
 
   // Sentence Caching
   static async getCachedSentence(topic: string, grade: string, difficulty: string): Promise<GameSentence | null> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('sentence_cache')
       .select('*')
@@ -218,6 +259,9 @@ export class DatabaseService {
   }
 
   static async cacheSentence(llmResponse: LLMResponse, topic: string, grade: string, difficulty: string) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { error } = await supabase
       .from('sentence_cache')
       .insert({
@@ -233,6 +277,9 @@ export class DatabaseService {
   }
 
   static async updateSentenceUsage(sentenceId: string) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     // First get current usage count
     const { data: currentUsage, error: fetchError } = await supabase
       .from('sentence_cache')
@@ -256,6 +303,9 @@ export class DatabaseService {
 
   // Analytics and Reporting
   static async getUserStats(userId: string) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('user_profiles')
       .select('total_score, games_played')
@@ -267,6 +317,9 @@ export class DatabaseService {
   }
 
   static async getLeaderboard(grade: string, limit: number = 10) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('user_profiles')
       .select('name, total_score, games_played')
@@ -280,6 +333,9 @@ export class DatabaseService {
 
   // Cleanup and Maintenance
   static async cleanupOldCache(daysOld: number = 30) {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
@@ -294,6 +350,9 @@ export class DatabaseService {
 
 // Real-time subscriptions for live updates
 export const subscribeToUserResults = (userId: string, callback: (payload: any) => void) => {
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
   return supabase
     .channel('user_results')
     .on('postgres_changes', {
