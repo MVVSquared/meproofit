@@ -271,13 +271,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 >
                   Try Again
                 </button>
-                <button
-                  onClick={() => setShowGradeSelector(true)}
-                  className="btn-primary flex items-center justify-center gap-2"
-                >
-                  <GraduationCap size={20} />
-                  Try Different Grade
-                </button>
               </>
             ) : (
               <>
