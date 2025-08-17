@@ -6,10 +6,11 @@ import { UserSetup } from './components/UserSetup';
 import { GameModeSelector } from './components/GameModeSelector';
 import { DailyArchives } from './components/DailyArchives';
 import { UserSettings } from './components/UserSettings';
+import { GradeSelector } from './components/GradeSelector';
 import { TOPICS } from './data/topics';
 
 
-type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives' | 'user-settings';
+type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives' | 'user-settings' | 'grade-selector';
 
 function App() {
   const [currentView, setCurrentView] = useState<GameView>('user-setup');
@@ -108,15 +109,24 @@ function App() {
   };
 
   const handleGradeChange = (newGrade: string) => {
+    if (newGrade === 'select') {
+      // Show grade selector screen
+      setCurrentView('grade-selector');
+      return;
+    }
+    
     // For daily mode, only temporarily change the grade without affecting the profile
     if (gameMode === 'daily') {
       setTempGradeForDaily(newGrade);
+      // Return to game board with new grade
+      setCurrentView('game-board');
     } else {
       // For random mode, create a temporary user with the new grade for this session
       const tempUser = { ...user!, grade: newGrade };
       setUser(tempUser);
+      // Return to game board
+      setCurrentView('game-board');
     }
-    // Stay on game board - the new sentence will be generated for the new grade
   };
 
   const handleLogout = () => {
@@ -248,6 +258,14 @@ function App() {
             user={user} 
             onBack={handleBackFromSettings} 
             onUserUpdate={handleUserUpdate}
+          />
+        )}
+
+        {currentView === 'grade-selector' && user && (
+          <GradeSelector
+            user={user}
+            onGradeSelect={handleGradeChange}
+            onBack={() => setCurrentView('game-board')}
           />
         )}
       </main>
