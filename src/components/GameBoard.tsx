@@ -266,10 +266,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   View Archives
                 </button>
                 <button
-                  onClick={generateNewSentence}
+                  onClick={() => setShowGradeSelector(true)}
                   className="btn-secondary"
                 >
-                  Try Again
+                  Try Different Grade
                 </button>
               </>
             ) : (
