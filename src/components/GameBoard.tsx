@@ -266,7 +266,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   View Archives
                 </button>
                 <button
-                  onClick={() => setShowGradeSelector(true)}
+                  onClick={() => {
+                    console.log('Try Different Grade clicked, setting showGradeSelector to true');
+                    setShowGradeSelector(true);
+                    console.log('showGradeSelector should now be:', true);
+                  }}
                   className="btn-secondary"
                 >
                   Try Different Grade
