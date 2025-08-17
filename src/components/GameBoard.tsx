@@ -310,135 +310,137 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="card">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">
-              {gameMode === 'daily' ? '📅' : selectedTopic?.icon || '🎯'}
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {gameMode === 'daily' ? 'Daily Challenge' : selectedTopic?.name || 'Game'}
-              </h2>
-              <p className="text-sm text-gray-500">
-                Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade}) • {gameMode === 'daily' ? 'Daily Mode' : 'Random Topic'}
+    <>
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="card">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {gameMode === 'daily' ? '📅' : selectedTopic?.icon || '🎯'}
+              </span>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {gameMode === 'daily' ? 'Daily Challenge' : selectedTopic?.name || 'Game'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Attempt {attempts + 1} of {maxAttempts} • {user.name} ({user.grade}) • {gameMode === 'daily' ? 'Daily Mode' : 'Random Topic'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {gameMode === 'daily' && (
+                <button
+                  onClick={onShowArchives}
+                  className="btn-secondary text-sm flex items-center gap-1"
+                >
+                  <Archive size={16} />
+                  Archives
+                </button>
+              )}
+              {gameMode !== 'daily' && (
+                <button
+                  onClick={onBackToTopics}
+                  className="btn-secondary text-sm"
+                >
+                  New Topic
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Original Sentence */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3">Original Sentence:</h3>
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+              <p className="text-lg text-gray-800">{currentSentence.incorrectSentence}</p>
+            </div>
+          </div>
+
+          {/* User Input */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
+            <textarea
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your corrected sentence here..."
+              className="input-field min-h-[100px] resize-none"
+              disabled={isComplete}
+            />
+          </div>
+
+          {/* Attempt History */}
+          {attemptHistory.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Your Attempts:</h3>
+              <div className="space-y-3">
+                {attemptHistory.map((attempt, index) => (
+                  <div key={attempt.attempt} className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">
+                        Attempt {attempt.attempt}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {attempt.corrections.filter(c => c.type === 'correct').length} correct, 
+                        {attempt.corrections.filter(c => c.type === 'incorrect').length} incorrect
+                      </span>
+                    </div>
+                    <div className="text-lg text-gray-800 whitespace-pre-wrap">
+                      {renderHighlightedInput(attempt.userInput, attempt.corrections)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Legend for highlights */}
+          {corrections.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-200 rounded"></div>
+                  <span>Correct changes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-200 rounded"></div>
+                  <span>Incorrect changes</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hint */}
+          {attempts > 0 && !showHint && (
+            <div className="mb-6">
+              <button
+                onClick={() => setShowHint(true)}
+                className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+              >
+                💡 Need a hint?
+              </button>
+            </div>
+          )}
+
+          {showHint && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Hint:</strong> Look for spelling mistakes, missing punctuation, and capitalization errors.
               </p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            {gameMode === 'daily' && (
-              <button
-                onClick={onShowArchives}
-                className="btn-secondary text-sm flex items-center gap-1"
-              >
-                <Archive size={16} />
-                Archives
-              </button>
-            )}
-            {gameMode !== 'daily' && (
-              <button
-                onClick={onBackToTopics}
-                className="btn-secondary text-sm"
-              >
-                New Topic
-              </button>
-            )}
-          </div>
-        </div>
+          )}
 
-        {/* Original Sentence */}
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Original Sentence:</h3>
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-            <p className="text-lg text-gray-800">{currentSentence.incorrectSentence}</p>
-          </div>
-        </div>
-
-        {/* User Input */}
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
-          <textarea
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your corrected sentence here..."
-            className="input-field min-h-[100px] resize-none"
-            disabled={isComplete}
-          />
-        </div>
-
-        {/* Attempt History */}
-        {attemptHistory.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3">Your Attempts:</h3>
-            <div className="space-y-3">
-              {attemptHistory.map((attempt, index) => (
-                <div key={attempt.attempt} className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-600">
-                      Attempt {attempt.attempt}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {attempt.corrections.filter(c => c.type === 'correct').length} correct, 
-                      {attempt.corrections.filter(c => c.type === 'incorrect').length} incorrect
-                    </span>
-                  </div>
-                  <div className="text-lg text-gray-800 whitespace-pre-wrap">
-                    {renderHighlightedInput(attempt.userInput, attempt.corrections)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Legend for highlights */}
-        {corrections.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-200 rounded"></div>
-                <span>Correct changes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-200 rounded"></div>
-                <span>Incorrect changes</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Hint */}
-        {attempts > 0 && !showHint && (
-          <div className="mb-6">
+          {/* Submit Button */}
+          <div className="flex justify-center">
             <button
-              onClick={() => setShowHint(true)}
-              className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+              onClick={handleSubmit}
+              disabled={!userInput.trim() || isComplete}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              💡 Need a hint?
+              Submit Correction
             </button>
           </div>
-        )}
-
-        {showHint && (
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Hint:</strong> Look for spelling mistakes, missing punctuation, and capitalization errors.
-            </p>
-          </div>
-        )}
-
-        {/* Submit Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleSubmit}
-            disabled={!userInput.trim() || isComplete}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit Correction
-          </button>
         </div>
       </div>
 
@@ -492,19 +494,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
 
             <div className="flex gap-3">
-                              <button
-                  onClick={async () => {
-                    setShowGradeSelector(false);
-                    
-                    // Call parent handler to update user grade
-                    if (onGradeChange) {
-                      onGradeChange(selectedGradeForDaily);
-                    }
-                  }}
-                  className="btn-primary flex-1"
-                >
-                  Try This Grade
-                </button>
+              <button
+                onClick={async () => {
+                  setShowGradeSelector(false);
+                  
+                  // Call parent handler to update user grade
+                  if (onGradeChange) {
+                    onGradeChange(selectedGradeForDaily);
+                  }
+                }}
+                className="btn-primary flex-1"
+              >
+                Try This Grade
+              </button>
               <button
                 onClick={() => setShowGradeSelector(false)}
                 className="btn-secondary flex-1"
@@ -515,6 +517,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }; 
