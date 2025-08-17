@@ -278,7 +278,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             ) : (
               <>
                 <button
-                  onClick={generateNewSentence}
+                  onClick={() => generateNewSentence()}
                   className="btn-primary flex items-center justify-center gap-2"
                 >
                   <RotateCcw size={20} />
