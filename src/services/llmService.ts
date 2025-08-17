@@ -98,6 +98,18 @@ IMPORTANT: Include a mix of these error types:
 - PUNCTUATION errors (missing commas, periods, apostrophes, semicolons)
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
 
+CAPITALIZATION RULES - ONLY capitalize:
+- First word of a sentence
+- Proper nouns (names of people, places, specific brands)
+- Days of the week, months
+- Titles when used as proper nouns
+
+DO NOT capitalize:
+- Common nouns (sports, animals, foods, objects)
+- Generic terms (basketball, soccer, pizza, cat, dog)
+- Seasons (spring, summer, fall, winter)
+- School subjects (math, science, history) unless they're proper nouns
+
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
 ${grade.indexOf('K') !== -1 || grade.indexOf('1st') !== -1 || grade.indexOf('2nd') !== -1 || 
  grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1 
@@ -134,6 +146,53 @@ Respond ONLY with this exact JSON format (no other text):
     }
   }
 
+  private static validateAndCorrectCapitalization(sentence: string): string {
+    // Common words that should NOT be capitalized
+    const commonWords = [
+      'basketball', 'soccer', 'football', 'baseball', 'tennis', 'swimming',
+      'pizza', 'hamburger', 'chicken', 'apple', 'banana', 'orange',
+      'cat', 'dog', 'bird', 'fish', 'elephant', 'lion', 'tiger',
+      'car', 'bike', 'train', 'plane', 'boat', 'bus',
+      'book', 'pencil', 'paper', 'computer', 'phone', 'tablet',
+      'spring', 'summer', 'fall', 'winter',
+      'math', 'science', 'history', 'english', 'art', 'music',
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december'
+    ];
+
+    // Split into words and check each one
+    const words = sentence.split(' ');
+    const correctedWords = words.map((word, index) => {
+      // Always capitalize first word of sentence
+      if (index === 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+
+      // Check if it's a common word that shouldn't be capitalized
+      const cleanWord = word.replace(/[.,!?;:'"()]/g, '').toLowerCase();
+      if (commonWords.indexOf(cleanWord) !== -1) {
+        // Preserve punctuation
+        const punctuation = word.match(/[.,!?;:'"()]/g);
+        const baseWord = word.replace(/[.,!?;:'"()]/g, '');
+        return baseWord.toLowerCase() + (punctuation ? punctuation.join('') : '');
+      }
+
+      // Check if it's a proper noun (starts with capital, not in common words)
+      // This is a simple heuristic - you might want to expand this
+      if (word.charAt(0) === word.charAt(0).toUpperCase() && 
+          commonWords.indexOf(word.toLowerCase()) === -1 &&
+          word.length > 1) {
+        // Keep it capitalized - likely a proper noun
+        return word;
+      }
+
+      return word;
+    });
+
+    return correctedWords.join(' ');
+  }
+
   private static parseLLMResponse(content: string): LLMResponse {
     try {
       // Extract JSON from the response (in case there's extra text)
@@ -156,8 +215,26 @@ Respond ONLY with this exact JSON format (no other text):
           throw new Error(`Invalid error type: ${error.type}`);
         }
       }
+
+      // Validate and correct capitalization in the correct sentence
+      const correctedSentence = this.validateAndCorrectCapitalization(parsed.correctSentence);
       
-      return parsed as LLMResponse;
+      // If we made corrections, log them for debugging
+      if (correctedSentence !== parsed.correctSentence) {
+        console.log('Capitalization corrected:', {
+          original: parsed.correctSentence,
+          corrected: correctedSentence
+        });
+      }
+
+      // Update the response with corrected sentence
+      const validatedResponse: LLMResponse = {
+        incorrectSentence: parsed.incorrectSentence,
+        correctSentence: correctedSentence,
+        errors: parsed.errors
+      };
+      
+      return validatedResponse;
     } catch (error) {
       console.error('Error parsing LLM response:', error);
       throw new Error('Failed to parse LLM response');
