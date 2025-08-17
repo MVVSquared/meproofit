@@ -267,9 +267,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('Button clicked, current showGradeSelector:', showGradeSelector);
-                    setShowGradeSelector(true);
-                    console.log('After setting to true, showGradeSelector:', true);
+                    console.log('Button clicked, calling generateNewSentence');
+                    generateNewSentence();
                   }}
                   className="btn-secondary"
                 >
