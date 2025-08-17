@@ -41,7 +41,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [showGradeSelector, setShowGradeSelector] = useState(false);
   const [selectedGradeForDaily, setSelectedGradeForDaily] = useState(user.grade);
 
-  const generateNewSentence = useCallback(async () => {
+  const generateNewSentence = useCallback(async (gradeOverride?: string) => {
     setIsLoading(true);
     setAttempts(0);
     setCorrections([]);
@@ -52,8 +52,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     try {
       if (gameMode === 'daily') {
         // Generate daily sentence
-        console.log('Generating daily sentence for user:', user.name);
-        const dailySentence = await DailySentenceService.getTodaysSentence(user);
+        console.log('Generating daily sentence for user:', user.name, 'with grade:', gradeOverride || user.grade);
+        
+        // If we have a grade override, create a temporary user object with that grade
+        const userForSentence = gradeOverride ? { ...user, grade: gradeOverride } : user;
+        const dailySentence = await DailySentenceService.getTodaysSentence(userForSentence);
         setCurrentSentence(dailySentence);
         setUserInput(dailySentence.incorrectSentence); // Pre-fill with incorrect sentence
       } else {
@@ -266,10 +269,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   View Archives
                 </button>
                 <button
-                  onClick={() => {
-                    console.log('Button clicked, calling generateNewSentence');
-                    generateNewSentence();
-                  }}
+                  onClick={() => setShowGradeSelector(true)}
                   className="btn-secondary"
                 >
                   Try Different Grade
@@ -445,8 +445,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Grade Selector Modal */}
       {showGradeSelector && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0}}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" style={{backgroundColor: 'white', border: '2px solid red'}}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <div className="text-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 Choose a Grade Level
@@ -496,10 +496,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 onClick={async () => {
                   setShowGradeSelector(false);
                   
-                  // Call parent handler to update user grade
-                  if (onGradeChange) {
-                    onGradeChange(selectedGradeForDaily);
-                  }
+                  // Generate a new sentence for the selected grade
+                  await generateNewSentence(selectedGradeForDaily);
                 }}
                 className="btn-primary flex-1"
               >
