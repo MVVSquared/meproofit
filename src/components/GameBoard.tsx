@@ -269,7 +269,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   View Archives
                 </button>
                 <button
-                  onClick={() => setShowGradeSelector(true)}
+                  onClick={() => {
+                    console.log('Try Different Grade button clicked');
+                    console.log('Current showGradeSelector state:', showGradeSelector);
+                    setShowGradeSelector(true);
+                    console.log('After setting showGradeSelector to true');
+                  }}
                   className="btn-secondary"
                 >
                   Try Different Grade
@@ -444,6 +449,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       </div>
 
       {/* Grade Selector Modal */}
+      {console.log('Rendering modal check - showGradeSelector is:', showGradeSelector)}
       {showGradeSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
