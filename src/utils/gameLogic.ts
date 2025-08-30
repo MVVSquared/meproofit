@@ -139,16 +139,29 @@ export class GameLogic {
 
   static validateUserInput(input: string): boolean {
     // Basic validation - ensure input is not empty and contains reasonable characters
-    // Allow both straight and curly quotes/apostrophes, plus common punctuation
     if (input.trim().length === 0) return false;
     
     // Normalize the input to handle curly quotes and other special characters
     const normalizedInput = input
-      .replace(/[''′]/g, "'")  // Replace curly/smart apostrophes with straight ones
-      .replace(/[""″]/g, '"')  // Replace curly/smart quotes with straight ones
+      .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+      .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
       .replace(/[–—]/g, '-');  // Replace em/en dashes with hyphens
     
-    // Now test with the normalized input - hyphen doesn't need escaping in character class
+    // Debug logging to see what's happening
+    console.log('Original input:', input);
+    console.log('Normalized input:', normalizedInput);
+    console.log('Validation result:', /^[a-zA-Z0-9\s.,!?;:'"()-]+$/.test(normalizedInput));
+    
+    // Check for any problematic characters
+    for (let i = 0; i < normalizedInput.length; i++) {
+      const char = normalizedInput[i];
+      const charCode = char.charCodeAt(0);
+      if (!/^[a-zA-Z0-9\s.,!?;:'"()-]$/.test(char)) {
+        console.log(`Problematic character at position ${i}: '${char}' (char code: ${charCode})`);
+      }
+    }
+    
+    // Test with the normalized input - allow common punctuation and characters
     return /^[a-zA-Z0-9\s.,!?;:'"()-]+$/.test(normalizedInput);
   }
 }
