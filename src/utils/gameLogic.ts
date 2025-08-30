@@ -19,7 +19,6 @@ export class GameLogic {
     };
     
     const normalizedUserInput = normalizeString(userInput);
-    const normalizedCorrectSentence = normalizeString(correctSentence);
     const normalizedOriginalSentence = normalizeString(originalIncorrectSentence);
     
     // Create a map of expected corrections from the original sentence
