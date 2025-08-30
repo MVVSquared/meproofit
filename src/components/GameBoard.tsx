@@ -39,6 +39,15 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
 
+  // Normalize user input to handle curly quotes and special characters
+  const normalizeString = (str: string) => {
+    return str
+      .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+      .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
+      .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+      .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
+  };
+
   const generateNewSentence = useCallback(async (gradeOverride?: string) => {
     setIsLoading(true);
     setAttempts(0);
@@ -150,15 +159,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       return;
     }
 
-    // Normalize user input to handle curly quotes and special characters
-    const normalizeString = (str: string) => {
-      return str
-        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
-        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
-        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
-        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
-    };
-    
     const normalizedUserInput = normalizeString(userInput);
 
     const newAttempts = attempts + 1;
