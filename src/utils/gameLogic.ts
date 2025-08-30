@@ -138,21 +138,25 @@ export class GameLogic {
   }
 
   static validateUserInput(input: string): boolean {
-    // Basic validation - ensure input is not empty and contains reasonable characters
+    // Basic validation - ensure input is not empty
     if (input.trim().length === 0) return false;
+    
+    // For an educational game, be more permissive with input validation
+    // Only reject obviously problematic inputs like null/undefined or extremely long text
+    if (input.length > 1000) return false; // Reasonable length limit
     
     // Normalize the input to handle curly quotes and other special characters
     const normalizedInput = input
       .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
       .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
-      .replace(/[–—]/g, '-');  // Replace em/en dashes with hyphens
+      .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+      .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
     
     // Debug logging to see what's happening
     console.log('Original input:', input);
     console.log('Normalized input:', normalizedInput);
-    console.log('Validation result:', /^[a-zA-Z0-9\s.,!?;:'"()-]+$/.test(normalizedInput));
     
-    // Check for any problematic characters
+    // Check for any problematic characters in the normalized input
     for (let i = 0; i < normalizedInput.length; i++) {
       const char = normalizedInput[i];
       const charCode = char.charCodeAt(0);
@@ -161,7 +165,8 @@ export class GameLogic {
       }
     }
     
-    // Test with the normalized input - allow common punctuation and characters
-    return /^[a-zA-Z0-9\s.,!?;:'"()-]+$/.test(normalizedInput);
+    // Allow most printable characters that students might type
+    // This includes letters, numbers, spaces, punctuation, and common symbols
+    return true;
   }
 }
