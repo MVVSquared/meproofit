@@ -139,6 +139,16 @@ export class GameLogic {
 
   static validateUserInput(input: string): boolean {
     // Basic validation - ensure input is not empty and contains reasonable characters
-    return input.trim().length > 0 && /^[a-zA-Z0-9\s.,!?;:'"()-]+$/.test(input);
+    // Allow both straight and curly quotes/apostrophes, plus common punctuation
+    if (input.trim().length === 0) return false;
+    
+    // Normalize the input to handle curly quotes and other special characters
+    const normalizedInput = input
+      .replace(/[''′]/g, "'")  // Replace curly/smart apostrophes with straight ones
+      .replace(/[""″]/g, '"')  // Replace curly/smart quotes with straight ones
+      .replace(/[–—]/g, '-');  // Replace em/en dashes with hyphens
+    
+    // Now test with the normalized input
+    return /^[a-zA-Z0-9\s.,!?;:'"()\-]+$/.test(normalizedInput);
   }
 } 
