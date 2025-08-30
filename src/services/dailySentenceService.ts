@@ -1,5 +1,6 @@
 import { DailySentence, ArchiveEntry, User } from '../types';
 import { LLMService } from './llmService';
+import { DatabaseService } from './databaseService';
 import { TOPICS } from '../data/topics';
 
 export class DailySentenceService {
@@ -22,6 +23,8 @@ export class DailySentenceService {
     const topicIndex = this.getTopicIndexForDate(date, grade);
     const topic = TOPICS[topicIndex];
 
+    console.log(`Generating daily sentence for ${date}, grade ${grade}, topic ${topic.name}`);
+
     try {
       // Try to get sentence from LLM
       const llmResponse = await LLMService.generateSentenceWithErrors(
@@ -42,11 +45,32 @@ export class DailySentenceService {
         isDaily: true
       };
 
+      console.log('Generated daily sentence:', dailySentence);
+
+      // Try to save to database
+      try {
+        await DatabaseService.createDailySentence(dailySentence);
+        console.log('Successfully saved daily sentence to database');
+      } catch (dbError) {
+        console.error('Failed to save daily sentence to database:', dbError);
+        // Continue with local cache as fallback
+      }
+
       return dailySentence;
     } catch (error) {
       console.error('Error generating daily sentence with LLM:', error);
       // Fallback to predefined sentence
-      return this.getFallbackDailySentence(date, grade, topic);
+      const fallbackSentence = this.getFallbackDailySentence(date, grade, topic);
+      
+      // Try to save fallback to database
+      try {
+        await DatabaseService.createDailySentence(fallbackSentence);
+        console.log('Successfully saved fallback daily sentence to database');
+      } catch (dbError) {
+        console.error('Failed to save fallback daily sentence to database:', dbError);
+      }
+      
+      return fallbackSentence;
     }
   }
 
@@ -55,16 +79,31 @@ export class DailySentenceService {
     const today = this.getTodayDate();
     const cacheKey = `${today}-${user.grade}`;
     
-    // Check if we have today's sentence cached
+    console.log(`Getting today's sentence for ${user.name}, grade ${user.grade}, date ${today}`);
+    
+    // First, try to get from database
+    try {
+      const dbSentence = await DatabaseService.getDailySentence(today, user.grade);
+      if (dbSentence) {
+        console.log('Found daily sentence in database:', dbSentence);
+        return dbSentence;
+      }
+    } catch (error) {
+      console.log('Database lookup failed, will generate new sentence:', error);
+    }
+    
+    // Check local cache as backup
     const cached = this.getCachedDailySentence(cacheKey);
     if (cached) {
+      console.log('Found daily sentence in local cache:', cached);
       return cached;
     }
 
     // Generate new daily sentence
+    console.log('No cached sentence found, generating new one...');
     const dailySentence = await this.generateDailySentence(today, user.grade);
     
-    // Cache it
+    // Cache it locally as backup
     this.cacheDailySentence(cacheKey, dailySentence);
     
     return dailySentence;
@@ -114,8 +153,9 @@ export class DailySentenceService {
       const cached = this.getCachedDailySentences();
       cached[key] = sentence;
       localStorage.setItem(this.DAILY_SENTENCE_KEY, JSON.stringify(cached));
+      console.log('Cached daily sentence locally:', key);
     } catch (error) {
-      console.error('Error caching daily sentence:', error);
+      console.error('Error caching daily sentence locally:', error);
     }
   }
 
@@ -160,8 +200,9 @@ export class DailySentenceService {
       };
 
       localStorage.setItem(this.DAILY_ARCHIVE_KEY, JSON.stringify(archive));
+      console.log('Saved daily result to local archive:', key);
     } catch (error) {
-      console.error('Error saving daily result:', error);
+      console.error('Error saving daily result locally:', error);
     }
   }
 
@@ -215,5 +256,29 @@ export class DailySentenceService {
       grade,
       isDaily: true
     };
+  }
+
+  // Debug method to check database status
+  static async checkDatabaseStatus(): Promise<{ connected: boolean; tablesExist: boolean; dailySentencesCount: number }> {
+    try {
+      // Test connection by trying to get a daily sentence
+      const testDate = this.getTodayDate();
+      const testGrade = '3rd';
+      
+      const result = await DatabaseService.getDailySentence(testDate, testGrade);
+      
+      return {
+        connected: true,
+        tablesExist: true,
+        dailySentencesCount: result ? 1 : 0
+      };
+    } catch (error) {
+      console.error('Database status check failed:', error);
+      return {
+        connected: false,
+        tablesExist: false,
+        dailySentencesCount: 0
+      };
+    }
   }
 } 

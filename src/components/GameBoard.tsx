@@ -3,7 +3,7 @@ import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '
 import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { RotateCcw, Archive } from 'lucide-react';
+import { RotateCcw, Archive, Database } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic | null;
@@ -333,13 +333,33 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
             <div className="flex gap-2">
               {gameMode === 'daily' && (
-                <button
-                  onClick={onShowArchives}
-                  className="btn-secondary text-sm flex items-center gap-1"
-                >
-                  <Archive size={16} />
-                  Archives
-                </button>
+                <>
+                  <button
+                    onClick={onShowArchives}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <Archive size={16} />
+                    Archives
+                  </button>
+                  <button
+                    onClick={async () => {
+                      console.log('Testing database connection...');
+                      try {
+                        const status = await DailySentenceService.checkDatabaseStatus();
+                        console.log('Database status:', status);
+                        alert(`Database Status:\nConnected: ${status.connected}\nTables Exist: ${status.tablesExist}\nDaily Sentences: ${status.dailySentencesCount}`);
+                      } catch (error) {
+                        console.error('Database test failed:', error);
+                        alert('Database test failed. Check console for details.');
+                      }
+                    }}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                    title="Test Database Connection"
+                  >
+                    <Database size={16} />
+                    Test DB
+                  </button>
+                </>
               )}
               {gameMode !== 'daily' && (
                 <button
