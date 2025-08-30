@@ -148,7 +148,7 @@ export class GameLogic {
       .replace(/[""″]/g, '"')  // Replace curly/smart quotes with straight ones
       .replace(/[–—]/g, '-');  // Replace em/en dashes with hyphens
     
-    // Now test with the normalized input
+    // Now test with the normalized input - hyphen doesn't need escaping in character class
     return /^[a-zA-Z0-9\s.,!?;:'"()\-]+$/.test(normalizedInput);
   }
 } 
