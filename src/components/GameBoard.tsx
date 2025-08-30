@@ -136,7 +136,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }, [generateNewSentence]);
 
   const handleSubmit = () => {
+    console.log('Submit clicked - currentSentence:', currentSentence);
+    console.log('Submit clicked - userInput:', userInput);
+    console.log('Submit clicked - userInput length:', userInput.length);
+    
+    // Debug character codes for problematic text
+    console.log('Submit clicked - userInput char codes:', Array.from(userInput).map(c => `${c}: ${c.charCodeAt(0)}`));
+    console.log('Submit clicked - correctSentence char codes:', Array.from(currentSentence?.correctSentence || '').map(c => `${c}: ${c.charCodeAt(0)}`));
+    
     if (!currentSentence || !GameLogic.validateUserInput(userInput)) {
+      console.log('Submit blocked - currentSentence exists:', !!currentSentence);
+      console.log('Submit blocked - userInput valid:', GameLogic.validateUserInput(userInput));
       return;
     }
 
@@ -399,7 +409,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
             <textarea
               value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
+              onChange={(e) => {
+                console.log('Textarea onChange - old value:', userInput);
+                console.log('Textarea onChange - new value:', e.target.value);
+                setUserInput(e.target.value);
+              }}
               onKeyPress={handleKeyPress}
               placeholder="Type your corrected sentence here..."
               className="input-field min-h-[100px] resize-none"
