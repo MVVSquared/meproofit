@@ -55,11 +55,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         // If we have a grade override, create a temporary user object with that grade
         const userForSentence = gradeOverride ? { ...user, grade: gradeOverride } : user;
         const dailySentence = await DailySentenceService.getTodaysSentence(userForSentence);
+        
+        console.log('Setting currentSentence state to:', dailySentence);
         setCurrentSentence(dailySentence);
+        
         // Ensure userInput is properly initialized
         if (dailySentence && dailySentence.incorrectSentence) {
+          console.log('Setting userInput to:', dailySentence.incorrectSentence);
           setUserInput(dailySentence.incorrectSentence);
         } else {
+          console.log('Setting userInput to empty string (fallback)');
           setUserInput(''); // Fallback to empty string
         }
       } else {
@@ -308,6 +313,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }
 
   if (!currentSentence) {
+    console.log('Rendering: currentSentence is null/undefined');
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="card text-center">
@@ -316,6 +322,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       </div>
     );
   }
+
+  console.log('Rendering with currentSentence:', currentSentence);
+  console.log('userInput state:', userInput);
 
   return (
     <>
