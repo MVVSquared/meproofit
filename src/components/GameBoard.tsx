@@ -154,7 +154,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setAttempts(newAttempts);
 
     const newCorrections = GameLogic.checkCorrections(
-      userInput,
+      normalizedUserInput,
       currentSentence.correctSentence,
       currentSentence.incorrectSentence,
       currentSentence.errors
@@ -168,10 +168,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       corrections: newCorrections
     }]);
 
-    const isCorrect = GameLogic.isSentenceCorrect(userInput, currentSentence.correctSentence);
+    // Normalize user input to handle curly quotes and special characters
+    const normalizeString = (str: string) => {
+      return str
+        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
+        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
+    };
+    
+    const normalizedUserInput = normalizeString(userInput);
+    const isCorrect = GameLogic.isSentenceCorrect(normalizedUserInput, currentSentence.correctSentence);
     
     // Debug logging
-    console.log('User input:', JSON.stringify(userInput));
+    console.log('Original user input:', JSON.stringify(userInput));
+    console.log('Normalized user input:', JSON.stringify(normalizedUserInput));
     console.log('Correct sentence:', JSON.stringify(currentSentence.correctSentence));
     console.log('Is correct:', isCorrect);
     
@@ -258,7 +269,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="card text-center">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            {GameLogic.isSentenceCorrect(userInput, currentSentence!.correctSentence) 
+            {GameLogic.isSentenceCorrect(normalizeString(userInput), currentSentence!.correctSentence) 
               ? 'Great job! You got it right!' 
               : 'Game Over!'
             }
