@@ -150,6 +150,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       return;
     }
 
+    // Normalize user input to handle curly quotes and special characters
+    const normalizeString = (str: string) => {
+      return str
+        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
+        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
+    };
+    
+    const normalizedUserInput = normalizeString(userInput);
+
     const newAttempts = attempts + 1;
     setAttempts(newAttempts);
 
@@ -168,16 +179,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       corrections: newCorrections
     }]);
 
-    // Normalize user input to handle curly quotes and special characters
-    const normalizeString = (str: string) => {
-      return str
-        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
-        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
-        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
-        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
-    };
-    
-    const normalizedUserInput = normalizeString(userInput);
     const isCorrect = GameLogic.isSentenceCorrect(normalizedUserInput, currentSentence.correctSentence);
     
     // Debug logging
