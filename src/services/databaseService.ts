@@ -138,7 +138,21 @@ export class DatabaseService {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
-    return data;
+    
+    if (!data) return null;
+    
+    // Transform database fields to match TypeScript interface
+    return {
+      id: data.id,
+      date: data.date,
+      grade: data.grade,
+      topic: data.topic,
+      incorrectSentence: data.incorrect_sentence,
+      correctSentence: data.correct_sentence,
+      errors: data.errors,
+      difficulty: data.difficulty,
+      isDaily: true
+    };
   }
 
   static async createDailySentence(dailySentence: DailySentence) {
