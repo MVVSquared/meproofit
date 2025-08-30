@@ -56,7 +56,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         const userForSentence = gradeOverride ? { ...user, grade: gradeOverride } : user;
         const dailySentence = await DailySentenceService.getTodaysSentence(userForSentence);
         setCurrentSentence(dailySentence);
-        setUserInput(dailySentence.incorrectSentence); // Pre-fill with incorrect sentence
+        // Ensure userInput is properly initialized
+        if (dailySentence && dailySentence.incorrectSentence) {
+          setUserInput(dailySentence.incorrectSentence);
+        } else {
+          setUserInput(''); // Fallback to empty string
+        }
       } else {
         // Generate random sentence
         if (!selectedTopic) {
@@ -458,7 +463,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           <div className="flex justify-center">
             <button
               onClick={handleSubmit}
-              disabled={!userInput.trim() || isComplete}
+              disabled={!(userInput && userInput.trim()) || isComplete}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Submit Correction
