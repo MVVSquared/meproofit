@@ -9,15 +9,28 @@ export class GameLogic {
   ): Correction[] {
     const corrections: Correction[] = [];
     
+    // Normalize all sentences to handle curly quotes and special characters
+    const normalizeString = (str: string) => {
+      return str
+        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
+        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
+    };
+    
+    const normalizedUserInput = normalizeString(userInput);
+    const normalizedCorrectSentence = normalizeString(correctSentence);
+    const normalizedOriginalSentence = normalizeString(originalIncorrectSentence);
+    
     // Create a map of expected corrections from the original sentence
     const expectedCorrections = new Map<string, string>();
     errors.forEach(error => {
       expectedCorrections.set(error.incorrectText, error.correctText);
     });
 
-    // Split sentences into words for comparison
-    const userWords = userInput.split(' ');
-    const originalWords = originalIncorrectSentence.split(' ');
+    // Split normalized sentences into words for comparison
+    const userWords = normalizedUserInput.split(' ');
+    const originalWords = normalizedOriginalSentence.split(' ');
     
     // Use a more flexible approach to detect changes
     let userIndex = 0;
@@ -113,11 +126,15 @@ export class GameLogic {
   }
 
   static isSentenceCorrect(userInput: string, correctSentence: string): boolean {
-    // Normalize both strings for comparison
+    // Normalize both strings for comparison - handle both spaces and special characters
     const normalizeString = (str: string) => {
       return str
         .trim()
-        .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
+        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
+        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
+        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
     };
     
     return normalizeString(userInput) === normalizeString(correctSentence);
