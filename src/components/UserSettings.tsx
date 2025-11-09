@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { ArrowLeft, Save, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Save, User as UserIcon, Shield, Mail } from 'lucide-react';
+import AuthService from '../services/authService';
 
 interface UserSettingsProps {
   user: User;
@@ -12,6 +13,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
   const [name, setName] = useState(user.name);
   const [grade, setGrade] = useState(user.grade);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authService] = useState(() => AuthService.getInstance());
 
   const gradeOptions = [
     { value: 'K', label: 'Kindergarten' },
@@ -51,15 +53,16 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
     setIsSubmitting(true);
     
     try {
-      // Create updated user object
+      // Create updated user object, preserving Google account info
       const updatedUser: User = {
+        ...user, // Preserve all existing properties including Google account info
         name: name.trim(),
         grade,
         difficulty: getDifficultyFromGrade(grade)
       };
 
-      // Update localStorage
-      localStorage.setItem('meproofit-user', JSON.stringify(updatedUser));
+      // Update localStorage using auth service
+      authService.saveUser(updatedUser);
       
       // Call parent handler to update app state
       onUserUpdate(updatedUser);
@@ -91,14 +94,42 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
 
       <div className="card">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-            <UserIcon className="w-6 h-6 text-primary-600" />
-          </div>
+          {user.picture ? (
+            <img 
+              src={user.picture} 
+              alt={user.name}
+              className="w-12 h-12 rounded-full border-2 border-gray-200"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+              <UserIcon className="w-6 h-6 text-primary-600" />
+            </div>
+          )}
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
             <p className="text-sm text-gray-600">Update your name and grade level</p>
+            {user.isAuthenticated && (
+              <div className="flex items-center gap-1 mt-1">
+                <Shield size={14} className="text-green-600" />
+                <span className="text-xs text-green-600 font-medium">Google Account</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Google Account Info */}
+        {user.isAuthenticated && user.email && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Mail size={16} className="text-green-600" />
+              <h3 className="font-medium text-green-800">Google Account</h3>
+            </div>
+            <p className="text-sm text-green-700">{user.email}</p>
+            <p className="text-xs text-green-600 mt-1">
+              Your profile is linked to your Google account and will sync across devices.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name Input */}
@@ -115,6 +146,11 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
               className="input-field"
               required
             />
+            {user.isAuthenticated && (
+              <p className="text-xs text-gray-500 mt-1">
+                This name will be used in the game, but your Google account name is preserved.
+              </p>
+            )}
           </div>
 
           {/* Grade Selection */}
@@ -190,6 +226,19 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
           <p>• Daily challenges will be appropriate for your new grade level</p>
         </div>
       </div>
+
+      {/* Account Security Info */}
+      {user.isAuthenticated && (
+        <div className="mt-6 card">
+          <h3 className="font-semibold text-gray-900 mb-3">Account Security</h3>
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>• Your account is secured by Google's authentication system</p>
+            <p>• No passwords are stored on our servers</p>
+            <p>• You can sign out from any device using the Sign Out button</p>
+            <p>• Your data is stored locally in your browser for privacy</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

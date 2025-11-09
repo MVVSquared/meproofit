@@ -8,6 +8,7 @@ import { DailyArchives } from './components/DailyArchives';
 import { UserSettings } from './components/UserSettings';
 import { GradeSelector } from './components/GradeSelector';
 import { TOPICS } from './data/topics';
+import AuthService from './services/authService';
 
 
 type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives' | 'user-settings' | 'grade-selector';
@@ -20,6 +21,7 @@ function App() {
   const [totalScore, setTotalScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [tempGradeForDaily, setTempGradeForDaily] = useState<string | null>(null);
+  const [authService] = useState(() => AuthService.getInstance());
 
   // Function to randomly select a topic
   const selectRandomTopic = (): Topic => {
@@ -27,21 +29,33 @@ function App() {
     return TOPICS[randomIndex];
   };
 
-  // Check for existing user on app load
+  // Check for existing user on app load and handle OAuth callback
   useEffect(() => {
-    const savedUser = localStorage.getItem('meproofit-user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        // Show game mode selector instead of going directly to game
-        setCurrentView('game-mode-selector');
-      } catch (error) {
-        console.error('Error loading saved user:', error);
-        localStorage.removeItem('meproofit-user');
+    const initializeUser = async () => {
+      // First, check for OAuth callback
+      const googleUser = await authService.handleAuthCallback();
+      if (googleUser) {
+        // User just signed in with Google, check if they have a profile
+        const savedUser = await authService.getUser();
+        if (savedUser) {
+          setUser(savedUser);
+          setCurrentView('game-mode-selector');
+        } else {
+          // New Google user, show setup
+          setCurrentView('user-setup');
+        }
+      } else {
+        // No OAuth callback, check for existing user
+        const savedUser = await authService.getUser();
+        if (savedUser) {
+          setUser(savedUser);
+          // Show game mode selector instead of going directly to game
+          setCurrentView('game-mode-selector');
+        }
       }
-    }
-  }, []);
+    };
+    initializeUser();
+  }, [authService]);
 
   const handleUserSetup = (userData: User) => {
     setUser(userData);
@@ -129,14 +143,14 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.signOut();
     setUser(null);
     setSelectedTopic(null);
     setGameMode(null);
     setTotalScore(0);
     setGamesPlayed(0);
     setTempGradeForDaily(null);
-    localStorage.removeItem('meproofit-user');
     setCurrentView('user-setup');
   };
 
@@ -173,19 +187,31 @@ function App() {
             
             {user && (
               <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Welcome, {user.name}!</span>
-                  <span className="mx-2">•</span>
-                  <span>{getEffectiveGrade()}</span>
-                  {gameMode && (
-                    <>
-                      <span className="mx-2">•</span>
-                      <span className="capitalize">{gameMode} Mode</span>
-                    </>
+                <div className="flex items-center space-x-3">
+                  {user.picture && (
+                    <img 
+                      src={user.picture} 
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full border-2 border-gray-200"
+                    />
                   )}
-                  {gameMode === 'daily' && tempGradeForDaily && tempGradeForDaily !== user.grade && (
-                    <span className="ml-2 text-xs text-blue-600">(Temporary grade)</span>
-                  )}
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Welcome, {user.name}!</span>
+                    <span className="mx-2">•</span>
+                    <span>{getEffectiveGrade()}</span>
+                    {gameMode && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <span className="capitalize">{gameMode} Mode</span>
+                      </>
+                    )}
+                    {gameMode === 'daily' && tempGradeForDaily && tempGradeForDaily !== user.grade && (
+                      <span className="ml-2 text-xs text-blue-600">(Temporary grade)</span>
+                    )}
+                    {user.isAuthenticated && (
+                      <span className="ml-2 text-xs text-green-600">✓ Google Account</span>
+                    )}
+                  </div>
                 </div>
                 
                 {gamesPlayed > 0 && (
@@ -213,7 +239,7 @@ function App() {
                     onClick={handleLogout}
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
-                    Logout
+                    {user.isAuthenticated ? 'Sign Out' : 'Logout'}
                   </button>
                 </div>
               </div>

@@ -9,6 +9,13 @@ export interface User {
   name: string;
   grade: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  // Google account information (optional)
+  googleId?: string;
+  email?: string;
+  picture?: string;
+  // Authentication metadata
+  isAuthenticated?: boolean;
+  lastLogin?: string;
 }
 
 export type GameMode = 'daily' | 'random';

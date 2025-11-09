@@ -74,13 +74,17 @@ export class DatabaseService {
     if (!supabase) {
       throw new Error('Supabase not configured');
     }
+    // Use upsert to handle both new profiles and updates
     const { error } = await supabase
       .from('user_profiles')
-      .insert({
+      .upsert({
         id: userId,
         name: userData.name,
         grade: userData.grade,
-        difficulty: userData.difficulty
+        difficulty: userData.difficulty,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
       });
 
     if (error) throw error;
