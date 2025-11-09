@@ -98,10 +98,45 @@ REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
 
 ### Common Issues
 
-1. **"redirect_uri_mismatch" error**
-   - **Most common issue**: Make sure you've added Supabase's callback URL to Google Console:
-     - `https://[your-project-ref].supabase.co/auth/v1/callback`
-   - Also ensure your app URLs are in the authorized redirect URIs
+1. **"redirect_uri_mismatch" error** ⚠️ **FIX THIS FIRST**
+   
+   This is the most common error. Here's how to fix it:
+   
+   **Step 1: Find your Supabase project reference**
+   - Go to your Supabase project dashboard
+   - Look at your project URL: `https://[PROJECT-REF].supabase.co`
+   - Copy the `[PROJECT-REF]` part (it's usually a mix of letters and numbers)
+   
+   **Step 2: Add the exact Supabase callback URL to Google Console**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to **APIs & Services** > **Credentials**
+   - Click on your OAuth 2.0 Client ID
+   - Under **Authorized redirect URIs**, click **+ ADD URI**
+   - Add this EXACT URL (replace `[PROJECT-REF]` with your actual project reference):
+     ```
+     https://[PROJECT-REF].supabase.co/auth/v1/callback
+     ```
+   - **Important**: 
+     - No trailing slashes
+     - Use `https://` (not `http://`)
+     - Must be exactly: `/auth/v1/callback` at the end
+     - Replace `[PROJECT-REF]` with your actual Supabase project reference
+   
+   **Step 3: Save and wait**
+   - Click **SAVE** in Google Console
+   - Wait 1-2 minutes for changes to propagate
+   - Try signing in again
+   
+   **Example**: If your Supabase URL is `https://abcdefghijklmnop.supabase.co`, then add:
+   ```
+   https://abcdefghijklmnop.supabase.co/auth/v1/callback
+   ```
+   
+   **Still not working?**
+   - Double-check for typos in the URL
+   - Make sure you're using the correct OAuth Client ID in Supabase
+   - Verify your Supabase project URL is correct
+   - Try clearing your browser cache and cookies
 
 2. **"access_denied" error**
    - Verify that your email is added as a test user in Google Console
