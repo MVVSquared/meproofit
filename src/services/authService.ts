@@ -55,7 +55,11 @@ export class AuthService {
     }
 
     // Get the current URL for redirect
-    const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+    // Use environment variable if set (for production), otherwise use current origin
+    const productionUrl = process.env.REACT_APP_SITE_URL;
+    const redirectUrl = productionUrl 
+      ? `${productionUrl}${window.location.pathname}`
+      : `${window.location.origin}${window.location.pathname}`;
     
     // Initiate Google OAuth flow through Supabase
     // This will redirect the browser to Google, then back to the app

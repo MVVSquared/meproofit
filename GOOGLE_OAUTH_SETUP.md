@@ -59,7 +59,12 @@ After creating the OAuth client, you'll get:
 4. Enter your Google OAuth credentials:
    - **Client ID (for OAuth)**: Your Google Client ID
    - **Client Secret (for OAuth)**: Your Google Client Secret
-5. Click **Save**
+5. **Important**: Configure Redirect URLs
+   - Scroll down to **Redirect URLs** section
+   - Add your production URL: `https://your-app-name.vercel.app`
+   - Add your local development URL: `http://localhost:3000`
+   - These are the URLs where users will be redirected after OAuth
+6. Click **Save**
 
 ## Step 6: Configure Environment Variables
 
@@ -70,17 +75,24 @@ Create a `.env` file in your project root:
 REACT_APP_SUPABASE_URL=https://[your-project-ref].supabase.co
 REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
+# Site URL (for production redirects - optional but recommended)
+# Set this to your Vercel deployment URL
+REACT_APP_SITE_URL=https://your-app-name.vercel.app
+
 # OpenAI API Key (existing)
 REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-**Note**: You no longer need `REACT_APP_GOOGLE_CLIENT_ID` or `REACT_APP_GOOGLE_CLIENT_SECRET` in your React app - these are configured in Supabase.
+**Note**: 
+- You no longer need `REACT_APP_GOOGLE_CLIENT_ID` or `REACT_APP_GOOGLE_CLIENT_SECRET` in your React app - these are configured in Supabase.
+- `REACT_APP_SITE_URL` is optional - if not set, the app will use the current domain automatically. But setting it explicitly ensures correct redirects in production.
 
 ## Step 7: Deploy to Vercel
 
 1. Add the environment variables in your Vercel project settings:
    - `REACT_APP_SUPABASE_URL`
    - `REACT_APP_SUPABASE_ANON_KEY`
+   - `REACT_APP_SITE_URL` (set to your Vercel URL, e.g., `https://your-app-name.vercel.app`)
    - `REACT_APP_OPENAI_API_KEY`
 2. Deploy your app
 
@@ -150,9 +162,15 @@ REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
    - Check that the Supabase database tables are set up (see DATABASE_SETUP.md)
    - Verify that Row Level Security (RLS) policies allow users to create/update their own profiles
 
-5. **OAuth redirect not working**
-   - Ensure your Vercel deployment URL matches what's configured in Google Console
-   - Check that Supabase redirect URL is correctly configured
+5. **OAuth redirect not working / Redirecting to localhost instead of Vercel**
+   - **Fix 1**: Set `REACT_APP_SITE_URL` environment variable in Vercel to your production URL
+   - **Fix 2**: Configure Redirect URLs in Supabase:
+     - Go to Supabase Dashboard > Authentication > Providers > Google
+     - Scroll to "Redirect URLs" section
+     - Add your Vercel URL: `https://your-app-name.vercel.app`
+     - Add localhost for development: `http://localhost:3000`
+   - **Fix 3**: Make sure you're testing on the Vercel deployment, not localhost
+   - The redirect URL should match what's configured in both Google Console and Supabase
 
 ### Security Notes
 
