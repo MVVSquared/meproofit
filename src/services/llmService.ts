@@ -2,9 +2,8 @@ import axios from 'axios';
 import { LLMResponse } from '../types';
 import { DatabaseService } from './databaseService';
 
-// You'll need to set up your OpenAI API key in environment variables
-const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// API endpoint for sentence generation (backend handles OpenAI API key securely)
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 export class LLMService {
   static async generateSentenceWithErrors(
@@ -12,12 +11,6 @@ export class LLMService {
     difficulty: 'easy' | 'medium' | 'hard',
     grade: string
   ): Promise<LLMResponse> {
-    // Only use fallback if API key is completely missing
-    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'test_key' || OPENAI_API_KEY === 'disabled') {
-      console.log('Using fallback sentences - no valid API key');
-      return this.getFallbackSentence(topic, grade);
-    }
-
     // First, try to get a cached sentence from the database
     try {
       const cachedSentence = await DatabaseService.getCachedSentence(topic, grade, difficulty);
@@ -33,32 +26,25 @@ export class LLMService {
       console.log('Cache lookup failed, generating new sentence:', error);
     }
 
-    const prompt = this.buildPrompt(topic, difficulty, grade);
-    
+    // Call backend API instead of OpenAI directly (API key is secured on server)
     try {
-      const response = await axios.post(OPENAI_API_URL, {
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an educational game assistant that creates ${this.getContentType(grade)} with intentional spelling, punctuation, and capitalization errors for ${grade} students. Always respond with valid JSON only.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 800
+      const apiUrl = API_BASE_URL ? `${API_BASE_URL}/api/generate-sentence` : '/api/generate-sentence';
+      
+      const response = await axios.post(apiUrl, {
+        topic,
+        difficulty,
+        grade
       }, {
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         }
       });
 
-      const content = response.data.choices[0].message.content;
-      const llmResponse = this.parseLLMResponse(content);
+      const llmResponse: LLMResponse = {
+        incorrectSentence: response.data.incorrectSentence,
+        correctSentence: response.data.correctSentence,
+        errors: response.data.errors
+      };
 
       // Cache the generated sentence in the database
       try {
@@ -70,8 +56,8 @@ export class LLMService {
       }
 
       return llmResponse;
-    } catch (error) {
-      console.error('Error generating sentence with LLM:', error);
+    } catch (error: any) {
+      console.error('Error generating sentence with API:', error);
       console.log('Falling back to predefined sentences');
       return this.getFallbackSentence(topic, grade);
     }
