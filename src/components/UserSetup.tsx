@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import AuthService, { GoogleUser } from '../services/authService';
+import { validateAndSanitizeName } from '../utils/inputSanitization';
 
 interface UserSetupProps {
   onUserSetup: (user: User) => void;
@@ -73,6 +74,13 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onUserSetup }) => {
     e.preventDefault();
     if (!name.trim() || !grade) return;
 
+    // Validate and sanitize name input
+    const nameValidation = validateAndSanitizeName(name);
+    if (!nameValidation.isValid) {
+      alert(nameValidation.error || 'Please enter a valid name');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -84,9 +92,9 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onUserSetup }) => {
         // Save to both localStorage and Supabase
         await authService.saveUser(user, true);
       } else {
-        // Create local user (existing behavior)
+        // Create local user (existing behavior) - use sanitized name
         user = {
-          name: name.trim(),
+          name: nameValidation.sanitized,
           grade,
           difficulty: getDifficultyFromGrade(grade),
           isAuthenticated: false
@@ -174,6 +182,9 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onUserSetup }) => {
                     className="input-field text-center text-lg"
                     required
                     autoFocus
+                    maxLength={50}
+                    pattern="[a-zA-Z\s'-\.]+"
+                    title="Name can only contain letters, spaces, hyphens, apostrophes, and periods"
                   />
                 </div>
               )}

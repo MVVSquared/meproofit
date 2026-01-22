@@ -1,4 +1,5 @@
 import { Correction, SentenceError } from '../types';
+import { validateAndSanitizeSentence, normalizeSentenceInput, isSafeInput } from './inputSanitization';
 
 export class GameLogic {
   static checkCorrections(
@@ -154,35 +155,35 @@ export class GameLogic {
   }
 
   static validateUserInput(input: string): boolean {
-    // Basic validation - ensure input is not empty
-    if (input.trim().length === 0) return false;
+    // Use sanitization utility for validation
+    const validation = validateAndSanitizeSentence(input);
     
-    // For an educational game, be more permissive with input validation
-    // Only reject obviously problematic inputs like null/undefined or extremely long text
-    if (input.length > 1000) return false; // Reasonable length limit
-    
-    // Normalize the input to handle curly quotes and other special characters
-    const normalizedInput = input
-      .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
-      .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
-      .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
-      .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
-    
-    // Debug logging to see what's happening
-    console.log('Original input:', input);
-    console.log('Normalized input:', normalizedInput);
-    
-    // Check for any problematic characters in the normalized input
-    for (let i = 0; i < normalizedInput.length; i++) {
-      const char = normalizedInput[i];
-      const charCode = char.charCodeAt(0);
-      if (!/^[a-zA-Z0-9\s.,!?;:'"()-]$/.test(char)) {
-        console.log(`Problematic character at position ${i}: '${char}' (char code: ${charCode})`);
+    if (!validation.isValid) {
+      if (validation.error) {
+        console.warn('Input validation failed:', validation.error);
       }
+      return false;
     }
     
-    // Allow most printable characters that students might type
-    // This includes letters, numbers, spaces, punctuation, and common symbols
+    // Additional check for safe input patterns
+    if (!isSafeInput(input)) {
+      console.warn('Potentially unsafe input detected');
+      return false;
+    }
+    
     return true;
+  }
+
+  /**
+   * Sanitizes user input before processing
+   * @param input - Raw user input
+   * @returns Sanitized input safe for processing
+   */
+  static sanitizeUserInput(input: string): string {
+    const validation = validateAndSanitizeSentence(input);
+    if (validation.isValid) {
+      return normalizeSentenceInput(validation.sanitized);
+    }
+    return normalizeSentenceInput(input); // Fallback to normalization only
   }
 }

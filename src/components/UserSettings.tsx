@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { ArrowLeft, Save, User as UserIcon, Shield, Mail } from 'lucide-react';
 import AuthService from '../services/authService';
+import { validateAndSanitizeName } from '../utils/inputSanitization';
 
 interface UserSettingsProps {
   user: User;
@@ -50,13 +51,21 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
     e.preventDefault();
     if (!name.trim() || !grade) return;
 
+    // Validate and sanitize name input
+    const nameValidation = validateAndSanitizeName(name);
+    if (!nameValidation.isValid) {
+      alert(nameValidation.error || 'Please enter a valid name');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
       // Create updated user object, preserving Google account info
+      // Use sanitized name
       const updatedUser: User = {
         ...user, // Preserve all existing properties including Google account info
-        name: name.trim(),
+        name: nameValidation.sanitized,
         grade,
         difficulty: getDifficultyFromGrade(grade)
       };
@@ -68,6 +77,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
       onUserUpdate(updatedUser);
     } catch (error) {
       console.error('Error updating user settings:', error);
+      alert('Failed to update settings. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -145,6 +155,9 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
               placeholder="Enter your name"
               className="input-field"
               required
+              maxLength={50}
+              pattern="[a-zA-Z\s'-\.]+"
+              title="Name can only contain letters, spaces, hyphens, apostrophes, and periods"
             />
             {user.isAuthenticated && (
               <p className="text-xs text-gray-500 mt-1">

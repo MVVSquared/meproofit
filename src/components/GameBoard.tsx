@@ -3,6 +3,7 @@ import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '
 import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
+import { sanitizeString, validateAndSanitizeSentence } from '../utils/inputSanitization';
 import { RotateCcw, Archive, Database } from 'lucide-react';
 
 interface GameBoardProps {
@@ -145,21 +146,26 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }, [generateNewSentence]);
 
   const handleSubmit = () => {
-    console.log('Submit clicked - currentSentence:', currentSentence);
-    console.log('Submit clicked - userInput:', userInput);
-    console.log('Submit clicked - userInput length:', userInput.length);
-    
-    // Debug character codes for problematic text
-    console.log('Submit clicked - userInput char codes:', Array.from(userInput).map(c => `${c}: ${c.charCodeAt(0)}`));
-    console.log('Submit clicked - correctSentence char codes:', Array.from(currentSentence?.correctSentence || '').map(c => `${c}: ${c.charCodeAt(0)}`));
-    
-    if (!currentSentence || !GameLogic.validateUserInput(userInput)) {
-      console.log('Submit blocked - currentSentence exists:', !!currentSentence);
-      console.log('Submit blocked - userInput valid:', GameLogic.validateUserInput(userInput));
+    if (!currentSentence) {
       return;
     }
 
-    const normalizedUserInput = normalizeString(userInput);
+    // Validate and sanitize user input
+    const inputValidation = validateAndSanitizeSentence(userInput);
+    if (!inputValidation.isValid) {
+      alert(inputValidation.error || 'Please enter a valid sentence');
+      return;
+    }
+
+    // Use sanitized input for processing
+    const sanitizedInput = inputValidation.sanitized;
+    
+    if (!GameLogic.validateUserInput(sanitizedInput)) {
+      alert('Invalid input. Please check your sentence and try again.');
+      return;
+    }
+
+    const normalizedUserInput = normalizeString(sanitizedInput);
 
     const newAttempts = attempts + 1;
     setAttempts(newAttempts);
@@ -422,14 +428,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <textarea
               value={userInput}
               onChange={(e) => {
-                console.log('Textarea onChange - old value:', userInput);
-                console.log('Textarea onChange - new value:', e.target.value);
-                setUserInput(e.target.value);
+                const newValue = e.target.value;
+                // Validate input length
+                if (newValue.length <= 1000) {
+                  // Sanitize input in real-time
+                  const sanitized = sanitizeString(newValue);
+                  setUserInput(sanitized);
+                }
               }}
               onKeyPress={handleKeyPress}
               placeholder="Type your corrected sentence here..."
               className="input-field min-h-[100px] resize-none"
               disabled={isComplete}
+              maxLength={1000}
             />
           </div>
 

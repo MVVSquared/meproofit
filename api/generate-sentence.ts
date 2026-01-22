@@ -52,8 +52,30 @@ export default async function handler(
     return res.status(400).json({ error: 'Invalid topic' });
   }
 
+  // Sanitize topic (prevent XSS)
+  const sanitizedTopic = topic.trim().replace(/[<>]/g, '');
+  if (sanitizedTopic.length === 0 || sanitizedTopic.length > 100) {
+    return res.status(400).json({ error: 'Invalid topic' });
+  }
+
+  // Check for dangerous patterns in topic
+  if (/<script|javascript:|on\w+\s*=/i.test(sanitizedTopic)) {
+    return res.status(400).json({ error: 'Invalid topic' });
+  }
+
   // Validate grade is a string
   if (typeof grade !== 'string' || grade.trim().length === 0) {
+    return res.status(400).json({ error: 'Invalid grade' });
+  }
+
+  // Sanitize grade
+  const sanitizedGrade = grade.trim().replace(/[<>]/g, '');
+  if (sanitizedGrade.length === 0 || sanitizedGrade.length > 20) {
+    return res.status(400).json({ error: 'Invalid grade' });
+  }
+
+  // Check for dangerous patterns in grade
+  if (/<script|javascript:|on\w+\s*=/i.test(sanitizedGrade)) {
     return res.status(400).json({ error: 'Invalid grade' });
   }
 
@@ -66,11 +88,12 @@ export default async function handler(
   }
 
   // Build the prompt (same logic as in llmService.ts)
+  // Use sanitized values
   const errorCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
-  const contentType = getContentType(grade);
-  const gradeDescription = getGradeDescription(grade);
+  const contentType = getContentType(sanitizedGrade);
+  const gradeDescription = getGradeDescription(sanitizedGrade);
   
-  const prompt = `Create a ${contentType} about ${topic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student.
+  const prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student.
 
 IMPORTANT: Include a mix of these error types:
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
@@ -90,14 +113,14 @@ DO NOT capitalize:
 - School subjects (math, science, history) unless they're proper nouns
 
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
-${grade.indexOf('K') !== -1 || grade.indexOf('1st') !== -1 || grade.indexOf('2nd') !== -1 || 
- grade.indexOf('3rd') !== -1 || grade.indexOf('4th') !== -1 || grade.indexOf('5th') !== -1 
+${sanitizedGrade.indexOf('K') !== -1 || sanitizedGrade.indexOf('1st') !== -1 || sanitizedGrade.indexOf('2nd') !== -1 || 
+ sanitizedGrade.indexOf('3rd') !== -1 || sanitizedGrade.indexOf('4th') !== -1 || sanitizedGrade.indexOf('5th') !== -1 
   ? 'Keep it to 1-2 sentences maximum. Use simple, basic vocabulary appropriate for young children. Avoid complex words or concepts.' 
   : 'Make it 2-3 sentences that form a cohesive paragraph.'}
 
-${grade.indexOf('K') !== -1 ? 'Use very simple words and short sentences. Focus on basic concepts like colors, numbers, simple animals, or everyday objects.' : ''}
-${grade.indexOf('1st') !== -1 ? 'Use simple vocabulary and short sentences. Focus on familiar topics like family, school, pets, or basic activities.' : ''}
-${grade.indexOf('2nd') !== -1 ? 'Use age-appropriate vocabulary. Focus on familiar topics like friends, games, animals, or simple activities.' : ''}
+${sanitizedGrade.indexOf('K') !== -1 ? 'Use very simple words and short sentences. Focus on basic concepts like colors, numbers, simple animals, or everyday objects.' : ''}
+${sanitizedGrade.indexOf('1st') !== -1 ? 'Use simple vocabulary and short sentences. Focus on familiar topics like family, school, pets, or basic activities.' : ''}
+${sanitizedGrade.indexOf('2nd') !== -1 ? 'Use age-appropriate vocabulary. Focus on familiar topics like friends, games, animals, or simple activities.' : ''}
 
 Respond ONLY with this exact JSON format (no other text):
 {
@@ -121,7 +144,7 @@ Respond ONLY with this exact JSON format (no other text):
         messages: [
           {
             role: 'system',
-            content: `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${grade} students. Always respond with valid JSON only.`
+            content: `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${sanitizedGrade} students. Always respond with valid JSON only.`
           },
           {
             role: 'user',
