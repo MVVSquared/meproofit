@@ -53,7 +53,7 @@ export function validateAndSanitizeName(name: string): { isValid: boolean; sanit
 
   // Check for only allowed characters: letters, spaces, hyphens, apostrophes, periods
   // This allows names like "Mary-Jane O'Brien" or "Dr. Smith"
-  const namePattern = /^[a-zA-Z\s'-\.]+$/;
+  const namePattern = /^[a-zA-Z\s'-.]+$/;
   if (!namePattern.test(trimmed)) {
     return { 
       isValid: false, 
