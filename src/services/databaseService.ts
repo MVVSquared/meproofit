@@ -98,7 +98,7 @@ export class DatabaseService {
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
@@ -113,7 +113,7 @@ export class DatabaseService {
       .from('user_profiles')
       .select('total_score, games_played')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -139,9 +139,9 @@ export class DatabaseService {
       .from('daily_sentences')
       .select('*')
       .eq('id', `${date}-${grade}`)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+    if (error) throw error;
     
     if (!data) return null;
     
@@ -303,7 +303,7 @@ export class DatabaseService {
       .from('sentence_cache')
       .select('usage_count')
       .eq('id', sentenceId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -328,7 +328,7 @@ export class DatabaseService {
       .from('user_profiles')
       .select('total_score, games_played')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
