@@ -6,6 +6,77 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
+// Rate limiting configuration
+const RATE_LIMIT_REQUESTS = 10; // Number of requests allowed
+const RATE_LIMIT_WINDOW = 60; // Time window in seconds (1 minute)
+
+// Helper function to check rate limit
+async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // If Supabase not configured, allow request (fallback for development)
+    return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: Date.now() + RATE_LIMIT_WINDOW * 1000 };
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const now = Math.floor(Date.now() / 1000); // Current time in seconds
+    const windowStart = now - RATE_LIMIT_WINDOW;
+
+    // Get rate limit records for this user within the time window
+    const { data: records, error } = await supabase
+      .from('rate_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('timestamp', windowStart)
+      .order('timestamp', { ascending: false });
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = table doesn't exist
+      console.error('Rate limit check error:', error);
+      // On error, allow request but log it
+      return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: now + RATE_LIMIT_WINDOW };
+    }
+
+    const requestCount = records?.length || 0;
+    const remaining = Math.max(0, RATE_LIMIT_REQUESTS - requestCount);
+    const allowed = requestCount < RATE_LIMIT_REQUESTS;
+    const resetAt = records && records.length > 0 
+      ? (records[records.length - 1].timestamp + RATE_LIMIT_WINDOW) * 1000
+      : (now + RATE_LIMIT_WINDOW) * 1000;
+
+    // Record this request if allowed
+    if (allowed) {
+      await supabase
+        .from('rate_limits')
+        .insert({
+          user_id: userId,
+          timestamp: now,
+          endpoint: 'generate-sentence'
+        })
+        .catch(err => {
+          // Log but don't fail the request if rate limit recording fails
+          console.error('Failed to record rate limit:', err);
+        });
+    }
+
+    // Clean up old records (older than 2 windows to keep table size manageable)
+    const cleanupThreshold = now - (RATE_LIMIT_WINDOW * 2);
+    supabase
+      .from('rate_limits')
+      .delete()
+      .lt('timestamp', cleanupThreshold)
+      .catch(err => {
+        // Silent cleanup failure
+        console.error('Rate limit cleanup failed:', err);
+      });
+
+    return { allowed, remaining, resetAt };
+  } catch (error: any) {
+    console.error('Rate limit check error:', error);
+    // On error, allow request but log it
+    return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: Date.now() + RATE_LIMIT_WINDOW * 1000 };
+  }
+}
+
 // Helper function to verify authentication token
 async function verifyAuthToken(token: string): Promise<{ userId: string | null; error: string | null }> {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -96,11 +167,41 @@ export default async function handler(
     return res.status(401).json({ error: 'Invalid or expired authentication. Please sign in again.' });
   }
 
+  // Check rate limit
+  const rateLimit = await checkRateLimit(userId);
+  
+  if (!rateLimit.allowed) {
+    // Log rate limit violation (for security monitoring)
+    console.warn('Rate limit exceeded', {
+      userId: userId.substring(0, 8) + '...',
+      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+      timestamp: new Date().toISOString()
+    });
+    
+    // Return rate limit error with reset time
+    const resetDate = new Date(rateLimit.resetAt);
+    res.setHeader('X-RateLimit-Limit', RATE_LIMIT_REQUESTS.toString());
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
+    res.setHeader('Retry-After', Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString());
+    
+    return res.status(429).json({ 
+      error: 'Rate limit exceeded. Please try again later.',
+      retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
+    });
+  }
+
   // Log successful authenticated request (for monitoring)
   console.log('Authenticated API request', {
     userId: userId.substring(0, 8) + '...', // Only log partial user ID for privacy
+    remaining: rateLimit.remaining,
     timestamp: new Date().toISOString()
   });
+  
+  // Add rate limit headers to response
+  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_REQUESTS.toString());
+  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+  res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
 
   // Validate required parameters
   const { topic, difficulty, grade } = req.body;

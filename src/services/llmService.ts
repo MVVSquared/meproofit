@@ -84,6 +84,11 @@ export class LLMService {
       if (error.response?.status === 401) {
         console.log('Authentication required for AI-generated sentences. Using fallback sentences.');
         // Don't log the full error for 401s to avoid cluttering console
+      } else if (error.response?.status === 429) {
+        // Handle rate limit errors
+        const retryAfter = error.response?.data?.retryAfter || 60;
+        console.warn(`Rate limit exceeded. Please wait ${retryAfter} seconds before trying again. Using fallback sentences.`);
+        // Could show a user-friendly message here if needed
       } else {
         console.error('Error generating sentence with API:', error.message || error);
       }
