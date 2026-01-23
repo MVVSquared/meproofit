@@ -28,16 +28,39 @@ export class LLMService {
 
     // Call backend API instead of OpenAI directly (API key is secured on server)
     try {
+      // Get Supabase session token for authentication
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+      const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+      
+      let authToken: string | null = null;
+      
+      if (supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authToken = session.access_token;
+        }
+      }
+
+      // If no auth token, try to continue without it (for backward compatibility with local users)
+      // The API will reject the request if authentication is required
       const apiUrl = API_BASE_URL ? `${API_BASE_URL}/api/generate-sentence` : '/api/generate-sentence';
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
       
       const response = await axios.post(apiUrl, {
         topic,
         difficulty,
         grade
       }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers
       });
 
       const llmResponse: LLMResponse = {
@@ -57,7 +80,13 @@ export class LLMService {
 
       return llmResponse;
     } catch (error: any) {
-      console.error('Error generating sentence with API:', error);
+      // Handle authentication errors gracefully
+      if (error.response?.status === 401) {
+        console.log('Authentication required for AI-generated sentences. Using fallback sentences.');
+        // Don't log the full error for 401s to avoid cluttering console
+      } else {
+        console.error('Error generating sentence with API:', error.message || error);
+      }
       console.log('Falling back to predefined sentences');
       return this.getFallbackSentence(topic, grade);
     }

@@ -1,5 +1,31 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client for token verification
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+// Helper function to verify authentication token
+async function verifyAuthToken(token: string): Promise<{ userId: string | null; error: string | null }> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { userId: null, error: 'Supabase not configured' };
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return { userId: null, error: 'Invalid or expired token' };
+    }
+    
+    return { userId: user.id, error: null };
+  } catch (error: any) {
+    console.error('Token verification error:', error.message);
+    return { userId: null, error: 'Token verification failed' };
+  }
+}
 
 // Helper function to determine content type based on grade
 function getContentType(grade: string): string {
@@ -27,10 +53,54 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(200).end();
+  }
+
+  // Set CORS headers for all responses
+  res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Verify authentication
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Log unauthorized access attempt (for security monitoring)
+    console.warn('Unauthorized API access attempt - no auth token provided', {
+      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+      timestamp: new Date().toISOString()
+    });
+    return res.status(401).json({ error: 'Authentication required. Please sign in to use this feature.' });
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { userId, error: authError } = await verifyAuthToken(token);
+  
+  if (authError || !userId) {
+    // Log failed authentication attempt (for security monitoring)
+    console.warn('Failed authentication attempt', {
+      error: authError,
+      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+      timestamp: new Date().toISOString()
+    });
+    return res.status(401).json({ error: 'Invalid or expired authentication. Please sign in again.' });
+  }
+
+  // Log successful authenticated request (for monitoring)
+  console.log('Authenticated API request', {
+    userId: userId.substring(0, 8) + '...', // Only log partial user ID for privacy
+    timestamp: new Date().toISOString()
+  });
 
   // Validate required parameters
   const { topic, difficulty, grade } = req.body;
