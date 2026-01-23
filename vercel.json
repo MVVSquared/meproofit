@@ -17,10 +17,6 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
       "source": "/static/(.*)",
       "destination": "/static/$1"
     },
@@ -33,7 +29,7 @@
       "destination": "/manifest.json"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
