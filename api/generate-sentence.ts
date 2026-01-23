@@ -140,7 +140,17 @@ export default async function handler(
 
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    // Log the actual method for debugging
+    console.warn('Invalid method received:', {
+      method: req.method,
+      url: req.url,
+      headers: req.headers
+    });
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      allowedMethods: ['POST', 'OPTIONS'],
+      receivedMethod: req.method
+    });
   }
 
   // Verify authentication
