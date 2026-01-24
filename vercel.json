@@ -1,20 +1,6 @@
 {
   "version": 2,
   "name": "meproofit",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build",
-        "installCommand": "npm install --legacy-peer-deps"
-      }
-    },
-    {
-      "src": "api/*.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "rewrites": [
     {
       "source": "/static/(.*)",
