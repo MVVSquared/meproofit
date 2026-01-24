@@ -1,6 +1,16 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import axios from 'axios';
-import { createClient } from '@supabase/supabase-js';
+// IMPORTANT:
+// Vercel's Node runtime for serverless functions executes CommonJS by default.
+// If this file compiles to JS containing ESM `import` statements, the function will crash at startup with:
+// "SyntaxError: Cannot use import statement outside a module"
+//
+// To avoid that, keep runtime imports as `require()` and use type-only imports via `import()`.
+type VercelRequest = import('@vercel/node').VercelRequest;
+type VercelResponse = import('@vercel/node').VercelResponse;
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const axios = require('axios');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase client for token verification
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
