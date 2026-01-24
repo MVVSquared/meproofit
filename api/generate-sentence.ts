@@ -221,11 +221,30 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    // Always stamp responses so we can confirm which deployment served the request.
+    // (Visible in browser DevTools → Network → Response Headers)
+    const build =
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_DEPLOYMENT_ID ||
+      process.env.VERCEL_BUILD_ID ||
+      'unknown';
+    res.setHeader('X-MeProofIt-Build', build);
+
+    // Force at least one log line per invocation (helps when debugging “no logs”).
+    console.log('generate-sentence invoked', {
+      build,
+      method: req.method,
+      url: req.url,
+      hasAuthHeader: !!req.headers.authorization,
+      timestamp: new Date().toISOString()
+    });
+
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Expose-Headers', 'X-MeProofIt-Build');
       res.setHeader('Access-Control-Max-Age', '86400');
       return res.status(200).end();
     }
@@ -234,6 +253,7 @@ export default async function handler(
     res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Expose-Headers', 'X-MeProofIt-Build');
 
     // Only allow POST requests
     if (req.method !== 'POST') {
