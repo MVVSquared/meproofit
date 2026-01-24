@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { LLMResponse } from '../types';
 import { DatabaseService } from './databaseService';
+import AuthService from './authService';
 
 // API endpoint for sentence generation (backend handles OpenAI API key securely)
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -28,24 +29,24 @@ export class LLMService {
 
     // Call backend API instead of OpenAI directly (API key is secured on server)
     try {
-      // Get Supabase session token for authentication
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-      const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-      
+      // Get Supabase session token for authentication (use singleton to avoid multiple GoTrueClient instances)
       let authToken: string | null = null;
-      
-      if (supabaseUrl && supabaseAnonKey) {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const session = await AuthService.getInstance().getSession();
         if (session?.access_token) {
           authToken = session.access_token;
         }
+      } catch (authError) {
+        // If auth isn't configured/available, we'll continue without a token.
+        // The API will return 401 if authentication is required.
+        console.log('Auth token lookup failed, continuing without token:', authError);
       }
 
       // If no auth token, try to continue without it (for backward compatibility with local users)
       // The API will reject the request if authentication is required
-      const apiUrl = API_BASE_URL ? `${API_BASE_URL}/api/generate-sentence` : '/api/generate-sentence';
+      const relativeUrl = '/api/generate-sentence';
+      const normalizedBase = API_BASE_URL ? API_BASE_URL.replace(/\/+$/, '') : '';
+      const configuredUrl = normalizedBase ? `${normalizedBase}${relativeUrl}` : null;
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -54,14 +55,35 @@ export class LLMService {
       if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
       }
-      
-      const response = await axios.post(apiUrl, {
-        topic,
-        difficulty,
-        grade
-      }, {
-        headers
-      });
+
+      const postToApi = async (url: string) =>
+        axios.post(
+          url,
+          { topic, difficulty, grade },
+          { headers }
+        );
+
+      // Try configured URL first (if set), then fall back to same-origin relative URL.
+      // This helps if REACT_APP_API_URL is misconfigured (common cause of 404s).
+      let response;
+      try {
+        response = await postToApi(configuredUrl || relativeUrl);
+      } catch (primaryError: any) {
+        const status = primaryError?.response?.status;
+        const shouldRetryWithRelative =
+          !!configuredUrl &&
+          configuredUrl !== relativeUrl &&
+          status === 404;
+
+        if (shouldRetryWithRelative) {
+          console.warn(
+            `API endpoint not found at ${configuredUrl}. Retrying with same-origin ${relativeUrl}.`
+          );
+          response = await postToApi(relativeUrl);
+        } else {
+          throw primaryError;
+        }
+      }
 
       const llmResponse: LLMResponse = {
         incorrectSentence: response.data.incorrectSentence,
