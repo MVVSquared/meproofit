@@ -7,14 +7,76 @@
 type VercelRequest = import('@vercel/node').VercelRequest;
 type VercelResponse = import('@vercel/node').VercelResponse;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const axios = require('axios');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { createClient } = require('@supabase/supabase-js');
+// Use built-in fetch() (Node 18+) to avoid ESM/CJS loader issues with axios.
 
 // Initialize Supabase client for token verification
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+function normalizeSupabaseUrl(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+async function supabaseAuthGetUser(token: string): Promise<{ userId: string | null; error: string | null }> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { userId: null, error: 'Supabase not configured' };
+  }
+
+  try {
+    const base = normalizeSupabaseUrl(supabaseUrl);
+    const resp = await fetch(`${base}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!resp.ok) {
+      return { userId: null, error: 'Invalid or expired token' };
+    }
+
+    const data: any = await resp.json().catch(() => null);
+    const id = data?.id;
+    if (!id || typeof id !== 'string') {
+      return { userId: null, error: 'Invalid or expired token' };
+    }
+
+    return { userId: id, error: null };
+  } catch (e: any) {
+    console.error('Token verification error:', e?.message || String(e));
+    return { userId: null, error: 'Token verification failed' };
+  }
+}
+
+async function supabaseRest<T>(
+  token: string,
+  pathAndQuery: string,
+  init: RequestInit = {}
+): Promise<{ ok: boolean; status: number; data: T | null; text: string | null }> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { ok: false, status: 0, data: null, text: 'Supabase not configured' };
+  }
+
+  const base = normalizeSupabaseUrl(supabaseUrl);
+  const url = `${base}${pathAndQuery.startsWith('/') ? '' : '/'}${pathAndQuery}`;
+
+  const headers: Record<string, string> = {
+    apikey: supabaseAnonKey,
+    Authorization: `Bearer ${token}`,
+    ...(init.headers as Record<string, string> | undefined)
+  };
+
+  const resp = await fetch(url, {
+    ...init,
+    headers
+  });
+
+  const text = await resp.text().catch(() => null);
+  const data = text ? (JSON.parse(text) as T) : null;
+
+  return { ok: resp.ok, status: resp.status, data, text };
+}
 
 async function getJsonBody(req: VercelRequest): Promise<any> {
   // Vercel usually populates req.body for JSON, but in some deployments it can be undefined.
@@ -52,63 +114,72 @@ const RATE_LIMIT_REQUESTS = 10; // Number of requests allowed
 const RATE_LIMIT_WINDOW = 60; // Time window in seconds (1 minute)
 
 // Helper function to check rate limit
-async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+async function checkRateLimit(token: string, userId: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   if (!supabaseUrl || !supabaseAnonKey) {
     // If Supabase not configured, allow request (fallback for development)
     return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: Date.now() + RATE_LIMIT_WINDOW * 1000 };
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const now = Math.floor(Date.now() / 1000); // Current time in seconds
     const windowStart = now - RATE_LIMIT_WINDOW;
 
-    // Get rate limit records for this user within the time window
-    const { data: records, error } = await supabase
-      .from('rate_limits')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('timestamp', windowStart)
-      .order('timestamp', { ascending: false });
+    // Fetch timestamps for this user within the time window
+    const query =
+      `/rest/v1/rate_limits?select=timestamp` +
+      `&user_id=eq.${encodeURIComponent(userId)}` +
+      `&timestamp=gte.${windowStart}` +
+      `&order=timestamp.desc`;
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = table doesn't exist
-      console.error('Rate limit check error:', error);
-      // On error, allow request but log it
-      return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: now + RATE_LIMIT_WINDOW };
+    let records: Array<{ timestamp: number }> = [];
+    try {
+      const resp = await supabaseRest<Array<{ timestamp: number }>>(token, query, { method: 'GET' });
+      if (resp.ok && Array.isArray(resp.data)) {
+        records = resp.data;
+      } else if (resp.status !== 404) {
+        // If table doesn't exist, PostgREST may return 404; treat that as "no records"
+        console.error('Rate limit check error:', { status: resp.status, body: resp.text });
+      }
+    } catch (e: any) {
+      console.error('Rate limit check error:', e?.message || String(e));
+      return { allowed: true, remaining: RATE_LIMIT_REQUESTS, resetAt: Date.now() + RATE_LIMIT_WINDOW * 1000 };
     }
 
-    const requestCount = records?.length || 0;
+    const requestCount = records.length || 0;
     const remaining = Math.max(0, RATE_LIMIT_REQUESTS - requestCount);
     const allowed = requestCount < RATE_LIMIT_REQUESTS;
-    const resetAt = records && records.length > 0 
+    const resetAt = records.length > 0
       ? (records[records.length - 1].timestamp + RATE_LIMIT_WINDOW) * 1000
       : (now + RATE_LIMIT_WINDOW) * 1000;
 
     // Record this request if allowed
     if (allowed) {
-      await supabase
-        .from('rate_limits')
-        .insert({
+      supabaseRest<any>(token, '/rest/v1/rate_limits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({
           user_id: userId,
           timestamp: now,
           endpoint: 'generate-sentence'
         })
-        .catch(err => {
-          // Log but don't fail the request if rate limit recording fails
-          console.error('Failed to record rate limit:', err);
-        });
+      }).catch((err: any) => {
+        // Log but don't fail the request if rate limit recording fails
+        console.error('Failed to record rate limit:', err?.message || String(err));
+      });
     }
 
     // Clean up old records (older than 2 windows to keep table size manageable)
     const cleanupThreshold = now - (RATE_LIMIT_WINDOW * 2);
-    supabase
-      .from('rate_limits')
-      .delete()
-      .lt('timestamp', cleanupThreshold)
-      .catch(err => {
-        // Silent cleanup failure
-        console.error('Rate limit cleanup failed:', err);
-      });
+    supabaseRest<any>(token,
+      `/rest/v1/rate_limits?user_id=eq.${encodeURIComponent(userId)}&timestamp=lt.${cleanupThreshold}`,
+      { method: 'DELETE' }
+    ).catch((err: any) => {
+      // Silent cleanup failure
+      console.error('Rate limit cleanup failed:', err?.message || String(err));
+    });
 
     return { allowed, remaining, resetAt };
   } catch (error: any) {
@@ -120,23 +191,7 @@ async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remai
 
 // Helper function to verify authentication token
 async function verifyAuthToken(token: string): Promise<{ userId: string | null; error: string | null }> {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return { userId: null, error: 'Supabase not configured' };
-  }
-
-  try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error || !user) {
-      return { userId: null, error: 'Invalid or expired token' };
-    }
-    
-    return { userId: user.id, error: null };
-  } catch (error: any) {
-    console.error('Token verification error:', error.message);
-    return { userId: null, error: 'Token verification failed' };
-  }
+  return supabaseAuthGetUser(token);
 }
 
 // Helper function to determine content type based on grade
@@ -220,7 +275,7 @@ export default async function handler(
     }
 
     // Check rate limit
-    const rateLimit = await checkRateLimit(userId);
+    const rateLimit = await checkRateLimit(token, userId);
     
     if (!rateLimit.allowed) {
       // Log rate limit violation (for security monitoring)
@@ -360,9 +415,13 @@ Respond ONLY with this exact JSON format (no other text):
 }`;
 
   try {
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
+    const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         model: OPENAI_MODEL,
         messages: [
           {
@@ -374,20 +433,33 @@ Respond ONLY with this exact JSON format (no other text):
             content: prompt
           }
         ],
-        // Ask OpenAI to return a JSON object (reduces parse failures)
         response_format: { type: 'json_object' },
         temperature: 0.8,
         max_tokens: 800
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+      })
+    });
 
-    const content = response.data.choices[0].message.content;
+    const openAiText = await openAiResp.text();
+    if (!openAiResp.ok) {
+      let parsedErr: any = null;
+      try {
+        parsedErr = JSON.parse(openAiText);
+      } catch {
+        // ignore
+      }
+      const code = parsedErr?.error?.code;
+      const message = parsedErr?.error?.message || openAiText || 'OpenAI request failed';
+      const err: any = new Error(message);
+      err.openAiStatus = openAiResp.status;
+      err.openAiCode = code;
+      throw err;
+    }
+
+    const openAiJson: any = JSON.parse(openAiText);
+    const content = openAiJson?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') {
+      throw new Error('OpenAI response missing message content');
+    }
     
     // Parse and validate the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -420,13 +492,13 @@ Respond ONLY with this exact JSON format (no other text):
     // Log error server-side (not exposed to client)
     console.error('OpenAI API error:', {
       message: error.message,
-      status: error.response?.status,
-      data: error.response?.data
+      status: error.openAiStatus,
+      code: error.openAiCode
     });
     
     // Expose minimal, safe info to client (helps debugging without leaking secrets)
-    const openAiStatus = error.response?.status;
-    const openAiCode = error.response?.data?.error?.code;
+    const openAiStatus = error.openAiStatus;
+    const openAiCode = error.openAiCode;
 
     return res.status(500).json({
       error: 'Failed to generate sentence. Please try again.',
