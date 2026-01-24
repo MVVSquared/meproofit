@@ -83,8 +83,8 @@ REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 # Set this to your Vercel deployment URL
 REACT_APP_SITE_URL=https://your-app-name.vercel.app
 
-# OpenAI API Key (existing)
-REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
+# OpenAI API Key (server-side only; DO NOT prefix with REACT_APP_)
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 **Note**: 
@@ -97,7 +97,7 @@ REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
    - `REACT_APP_SUPABASE_URL`
    - `REACT_APP_SUPABASE_ANON_KEY`
    - `REACT_APP_SITE_URL` (set to your Vercel URL, e.g., `https://your-app-name.vercel.app`)
-   - `REACT_APP_OPENAI_API_KEY`
+   - `OPENAI_API_KEY`
 2. Deploy your app
 
 ## Step 8: Test the Integration

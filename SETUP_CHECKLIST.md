@@ -37,7 +37,7 @@ Use this checklist to ensure your MeProofIt app is properly configured with Verc
 - [ ] `.env` file created in project root
 - [ ] `REACT_APP_SUPABASE_URL` added to `.env`
 - [ ] `REACT_APP_SUPABASE_ANON_KEY` added to `.env`
-- [ ] `REACT_APP_OPENAI_API_KEY` added to `.env` (if using)
+- [ ] `OPENAI_API_KEY` added to `.env` (server-side only; if using AI)
 - [ ] Dependencies installed: `npm install --legacy-peer-deps`
 - [ ] App runs locally: `npm start`
 - [ ] No console errors in browser
@@ -55,7 +55,7 @@ Use this checklist to ensure your MeProofIt app is properly configured with Verc
   - [ ] `REACT_APP_SUPABASE_URL` (Production, Preview, Development)
   - [ ] `REACT_APP_SUPABASE_ANON_KEY` (Production, Preview, Development)
   - [ ] `REACT_APP_SITE_URL` (Production - set to Vercel URL after first deploy)
-  - [ ] `REACT_APP_OPENAI_API_KEY` (Production, Preview, Development)
+  - [ ] `OPENAI_API_KEY` (Production, Preview, Development)
 - [ ] First deployment successful
 - [ ] Vercel URL obtained: `https://[app-name].vercel.app`
 

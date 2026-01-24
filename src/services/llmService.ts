@@ -112,7 +112,15 @@ export class LLMService {
         console.warn(`Rate limit exceeded. Please wait ${retryAfter} seconds before trying again. Using fallback sentences.`);
         // Could show a user-friendly message here if needed
       } else {
-        console.error('Error generating sentence with API:', error.message || error);
+        const status = error.response?.status;
+        const serverError = error.response?.data?.error;
+        const serverDetails = error.response?.data?.details;
+        console.error('Error generating sentence with API:', {
+          message: error.message || String(error),
+          status,
+          serverError,
+          serverDetails
+        });
       }
       console.log('Falling back to predefined sentences');
       return this.getFallbackSentence(topic, grade);

@@ -85,7 +85,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         }
         
         console.log('Attempting to generate sentence for topic:', selectedTopic.name);
-        console.log('API Key status:', process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing');
         console.log('User difficulty:', user.difficulty);
         
         const llmResponse = await LLMService.generateSentenceWithErrors(

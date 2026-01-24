@@ -36,8 +36,8 @@ Create a `.env` file in your project root:
 REACT_APP_SUPABASE_URL=your_project_url_here
 REACT_APP_SUPABASE_ANON_KEY=your_anon_key_here
 
-# OpenAI Configuration (existing)
-REACT_APP_OPENAI_API_KEY=your_openai_key_here
+# OpenAI Configuration (server-side only; DO NOT prefix with REACT_APP_)
+OPENAI_API_KEY=your_openai_key_here
 ```
 
 ## 3. Database Schema Setup
@@ -205,7 +205,7 @@ Modify your main App component to use Supabase authentication instead of localSt
 3. Add the same environment variables:
    - `REACT_APP_SUPABASE_URL`
    - `REACT_APP_SUPABASE_ANON_KEY`
-   - `REACT_APP_OPENAI_API_KEY`
+   - `OPENAI_API_KEY` (server-side only; DO NOT prefix with REACT_APP_)
 
 ### Other Platforms
 Add the environment variables to your deployment platform's configuration.

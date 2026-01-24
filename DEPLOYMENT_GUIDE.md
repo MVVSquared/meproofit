@@ -192,8 +192,8 @@ REACT_APP_SUPABASE_ANON_KEY=your_anon_key_here
 # Site URL (for OAuth redirects - set to your Vercel URL)
 REACT_APP_SITE_URL=https://your-app-name.vercel.app
 
-# OpenAI API Key (if using AI features)
-REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
+# OpenAI API Key (server-side only; DO NOT prefix with REACT_APP_)
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 **Important Notes**:
@@ -233,8 +233,8 @@ REACT_APP_SUPABASE_ANON_KEY=your_anon_key_here
 # Site URL (optional - defaults to current origin)
 REACT_APP_SITE_URL=http://localhost:3000
 
-# OpenAI API Key
-REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
+# OpenAI API Key (server-side only; DO NOT prefix with REACT_APP_)
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ### Vercel Environment Variables
@@ -249,7 +249,7 @@ Add the same variables in Vercel dashboard:
 - [ ] `REACT_APP_SUPABASE_URL` - Your Supabase project URL
 - [ ] `REACT_APP_SUPABASE_ANON_KEY` - Your Supabase anon key
 - [ ] `REACT_APP_SITE_URL` - Your Vercel deployment URL (for production)
-- [ ] `REACT_APP_OPENAI_API_KEY` - Your OpenAI API key (if using AI)
+- [ ] `OPENAI_API_KEY` - Your OpenAI API key (server-side only; if using AI)
 
 ---
 
@@ -437,7 +437,7 @@ vercel --prod
 | `REACT_APP_SUPABASE_URL` | Supabase → Settings → API | ✅ Yes |
 | `REACT_APP_SUPABASE_ANON_KEY` | Supabase → Settings → API | ✅ Yes |
 | `REACT_APP_SITE_URL` | Your Vercel URL | ⚠️ Recommended |
-| `REACT_APP_OPENAI_API_KEY` | OpenAI Dashboard | ❌ Optional |
+| `OPENAI_API_KEY` | OpenAI Dashboard | ❌ Optional |
 
 ---
 

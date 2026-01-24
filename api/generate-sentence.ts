@@ -262,6 +262,7 @@ export default async function handler(
 
   // Get API key from server-side environment variable (NOT REACT_APP_*)
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   
   if (!OPENAI_API_KEY) {
     console.error('OPENAI_API_KEY not configured');
@@ -321,7 +322,7 @@ Respond ONLY with this exact JSON format (no other text):
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
@@ -332,6 +333,8 @@ Respond ONLY with this exact JSON format (no other text):
             content: prompt
           }
         ],
+        // Ask OpenAI to return a JSON object (reduces parse failures)
+        response_format: { type: 'json_object' },
         temperature: 0.8,
         max_tokens: 800
       },
@@ -380,9 +383,16 @@ Respond ONLY with this exact JSON format (no other text):
       data: error.response?.data
     });
     
-    // Don't expose internal error details to client
-    return res.status(500).json({ 
-      error: 'Failed to generate sentence. Please try again.' 
+    // Expose minimal, safe info to client (helps debugging without leaking secrets)
+    const openAiStatus = error.response?.status;
+    const openAiCode = error.response?.data?.error?.code;
+
+    return res.status(500).json({
+      error: 'Failed to generate sentence. Please try again.',
+      details: {
+        openAiStatus,
+        openAiCode
+      }
     });
   }
 }

@@ -5,7 +5,7 @@ A fun, educational web game designed for 3rd-5th grade students to practice spel
 ## Features
 
 - 🎯 **Topic-based Learning**: Choose from 10 engaging topics (Basketball, Animals, Space, etc.)
-- 🤖 **AI-Powered Content**: Uses OpenAI GPT-4 to generate unique sentences with intentional errors
+- 🤖 **AI-Powered Content**: Uses OpenAI to generate unique sentences with intentional errors (server-side key)
 - 🎮 **Interactive Gameplay**: Real-time feedback with green/red highlighting for corrections
 - 📊 **Progress Tracking**: Score tracking and performance analytics
 - 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
@@ -16,7 +16,7 @@ A fun, educational web game designed for 3rd-5th grade students to practice spel
 - **Frontend**: React 18 + TypeScript
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **AI Integration**: OpenAI GPT-4 API
+- **AI Integration**: OpenAI API (server-side)
 - **HTTP Client**: Axios
 
 ## Getting Started
@@ -41,9 +41,10 @@ A fun, educational web game designed for 3rd-5th grade students to practice spel
    ```
 
 3. **Set up environment variables**
-   Create a `.env` file in the root directory:
+   Create a `.env` (or `.env.local`) file in the root directory:
    ```env
-   REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
+   # Server-side only (used by the Vercel API route in /api)
+   OPENAI_API_KEY=your_openai_api_key_here
    ```
 
 4. **Start the development server**
@@ -56,9 +57,9 @@ A fun, educational web game designed for 3rd-5th grade students to practice spel
 
 ## LLM Configuration
 
-### OpenAI GPT-4 (Recommended)
+### OpenAI (Recommended)
 
-The app is configured to use OpenAI's GPT-4 API for generating sentences with errors. This provides:
+The app is configured to use OpenAI's API for generating sentences with errors. This provides:
 
 - **High-quality content**: Age-appropriate, engaging sentences
 - **Consistent error patterns**: Mix of spelling, punctuation, and capitalization errors
@@ -150,7 +151,7 @@ src/
 
 Set these in your deployment platform:
 ```env
-REACT_APP_OPENAI_API_KEY=your_production_api_key
+OPENAI_API_KEY=your_production_api_key
 NODE_ENV=production
 ```
 
