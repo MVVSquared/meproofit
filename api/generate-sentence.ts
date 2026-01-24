@@ -6,6 +6,37 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
+async function getJsonBody(req: VercelRequest): Promise<any> {
+  // Vercel usually populates req.body for JSON, but in some deployments it can be undefined.
+  // This helper makes the function resilient and prevents “unhandled 500” crashes.
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body);
+      } catch {
+        return null;
+      }
+    }
+    return req.body;
+  }
+
+  // If body wasn't parsed, read the raw stream and attempt JSON parse.
+  const raw = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 // Rate limiting configuration
 const RATE_LIMIT_REQUESTS = 10; // Number of requests allowed
 const RATE_LIMIT_WINDOW = 60; // Time window in seconds (1 minute)
@@ -124,97 +155,97 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
+  try {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Max-Age', '86400');
+      return res.status(200).end();
+    }
+
+    // Set CORS headers for all responses
     res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    return res.status(200).end();
-  }
 
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // Only allow POST requests
+    if (req.method !== 'POST') {
+      // Log the actual method for debugging
+      console.warn('Invalid method received:', {
+        method: req.method,
+        url: req.url,
+        headers: req.headers
+      });
+      return res.status(405).json({ 
+        error: 'Method not allowed',
+        allowedMethods: ['POST', 'OPTIONS'],
+        receivedMethod: req.method
+      });
+    }
 
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    // Log the actual method for debugging
-    console.warn('Invalid method received:', {
-      method: req.method,
-      url: req.url,
-      headers: req.headers
-    });
-    return res.status(405).json({ 
-      error: 'Method not allowed',
-      allowedMethods: ['POST', 'OPTIONS'],
-      receivedMethod: req.method
-    });
-  }
+    // Verify authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Log unauthorized access attempt (for security monitoring)
+      console.warn('Unauthorized API access attempt - no auth token provided', {
+        ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+        timestamp: new Date().toISOString()
+      });
+      return res.status(401).json({ error: 'Authentication required. Please sign in to use this feature.' });
+    }
 
-  // Verify authentication
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Log unauthorized access attempt (for security monitoring)
-    console.warn('Unauthorized API access attempt - no auth token provided', {
-      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
-      timestamp: new Date().toISOString()
-    });
-    return res.status(401).json({ error: 'Authentication required. Please sign in to use this feature.' });
-  }
+    const token = authHeader.replace('Bearer ', '');
+    const { userId, error: authError } = await verifyAuthToken(token);
+    
+    if (authError || !userId) {
+      // Log failed authentication attempt (for security monitoring)
+      console.warn('Failed authentication attempt', {
+        error: authError,
+        ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+        timestamp: new Date().toISOString()
+      });
+      return res.status(401).json({ error: 'Invalid or expired authentication. Please sign in again.' });
+    }
 
-  const token = authHeader.replace('Bearer ', '');
-  const { userId, error: authError } = await verifyAuthToken(token);
-  
-  if (authError || !userId) {
-    // Log failed authentication attempt (for security monitoring)
-    console.warn('Failed authentication attempt', {
-      error: authError,
-      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
-      timestamp: new Date().toISOString()
-    });
-    return res.status(401).json({ error: 'Invalid or expired authentication. Please sign in again.' });
-  }
+    // Check rate limit
+    const rateLimit = await checkRateLimit(userId);
+    
+    if (!rateLimit.allowed) {
+      // Log rate limit violation (for security monitoring)
+      console.warn('Rate limit exceeded', {
+        userId: userId.substring(0, 8) + '...',
+        ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+        timestamp: new Date().toISOString()
+      });
+      
+      res.setHeader('X-RateLimit-Limit', RATE_LIMIT_REQUESTS.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
+      res.setHeader('Retry-After', Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString());
+      
+      return res.status(429).json({ 
+        error: 'Rate limit exceeded. Please try again later.',
+        retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
+      });
+    }
 
-  // Check rate limit
-  const rateLimit = await checkRateLimit(userId);
-  
-  if (!rateLimit.allowed) {
-    // Log rate limit violation (for security monitoring)
-    console.warn('Rate limit exceeded', {
-      userId: userId.substring(0, 8) + '...',
-      ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'],
+    // Log successful authenticated request (for monitoring)
+    console.log('Authenticated API request', {
+      userId: userId.substring(0, 8) + '...', // Only log partial user ID for privacy
+      remaining: rateLimit.remaining,
       timestamp: new Date().toISOString()
     });
     
-    // Return rate limit error with reset time
-    const resetDate = new Date(rateLimit.resetAt);
+    // Add rate limit headers to response
     res.setHeader('X-RateLimit-Limit', RATE_LIMIT_REQUESTS.toString());
-    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
     res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
-    res.setHeader('Retry-After', Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString());
-    
-    return res.status(429).json({ 
-      error: 'Rate limit exceeded. Please try again later.',
-      retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
-    });
-  }
 
-  // Log successful authenticated request (for monitoring)
-  console.log('Authenticated API request', {
-    userId: userId.substring(0, 8) + '...', // Only log partial user ID for privacy
-    remaining: rateLimit.remaining,
-    timestamp: new Date().toISOString()
-  });
-  
-  // Add rate limit headers to response
-  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_REQUESTS.toString());
-  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
-  res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
-
-  // Validate required parameters
-  const { topic, difficulty, grade } = req.body;
+    // Validate required parameters
+    const body = await getJsonBody(req);
+    const { topic, difficulty, grade } = body || {};
   
   if (!topic || !difficulty || !grade) {
     return res.status(400).json({ 
@@ -392,6 +423,20 @@ Respond ONLY with this exact JSON format (no other text):
       details: {
         openAiStatus,
         openAiCode
+      }
+    });
+  }
+  } catch (unhandled: any) {
+    // This catches issues like undefined req.body or other unexpected runtime failures
+    console.error('Unhandled API error (generate-sentence):', {
+      message: unhandled?.message || String(unhandled),
+      name: unhandled?.name,
+    });
+
+    return res.status(500).json({
+      error: 'Internal server error in sentence generator.',
+      details: {
+        stage: 'unhandled',
       }
     });
   }
