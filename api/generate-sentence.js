@@ -13,6 +13,12 @@
  
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_SEC = 60;
+// If you ever want to re-lock this down, set REQUIRE_AUTH_FOR_AI=true in Vercel env vars.
+const REQUIRE_AUTH_FOR_AI = String(process.env.REQUIRE_AUTH_FOR_AI || '').toLowerCase() === 'true';
+
+// Best-effort in-memory rate limit for anonymous users (per warm lambda instance).
+// This is not perfect across all instances, but it restores “no sign-in needed” behavior safely.
+const anonRateMap = new Map(); // key -> { windowStartSec, count }
  
 const supabaseUrl =
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -38,6 +44,33 @@ function setCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   // Let the browser read our debug build header
   res.setHeader('Access-Control-Expose-Headers', 'X-MeProofIt-Build');
+}
+
+function getClientIp(req) {
+  // Prefer the first IP in X-Forwarded-For (client, proxy1, proxy2...)
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) return xff.split(',')[0].trim();
+  const xri = req.headers['x-real-ip'];
+  if (typeof xri === 'string' && xri.trim()) return xri.trim();
+  // Fallback (may be undefined in some runtimes)
+  return (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+
+function checkAnonRateLimit(key) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const entry = anonRateMap.get(key);
+  if (!entry || nowSec - entry.windowStartSec >= RATE_LIMIT_WINDOW_SEC) {
+    anonRateMap.set(key, { windowStartSec: nowSec, count: 1 });
+    return { allowed: true, remaining: RATE_LIMIT_REQUESTS - 1, resetAt: (nowSec + RATE_LIMIT_WINDOW_SEC) * 1000 };
+  }
+
+  entry.count += 1;
+  anonRateMap.set(key, entry);
+
+  const remaining = Math.max(0, RATE_LIMIT_REQUESTS - entry.count);
+  const allowed = entry.count <= RATE_LIMIT_REQUESTS;
+  const resetAt = (entry.windowStartSec + RATE_LIMIT_WINDOW_SEC) * 1000;
+  return { allowed, remaining, resetAt };
 }
  
 function readJsonBody(req) {
@@ -232,20 +265,34 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed', allowedMethods: ['POST', 'OPTIONS'] });
   }
  
-  // Auth required
+  // Auth is OPTIONAL by default (restores historical behavior).
+  // If REQUIRE_AUTH_FOR_AI=true, we will enforce sign-in again.
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const hasBearer = typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
+
+  let token = null;
+  let userId = null;
+
+  if (hasBearer) {
+    token = authHeader.slice('Bearer '.length);
+    const verified = await supabaseAuthGetUserId(token);
+    if (verified.userId) userId = verified.userId;
+  }
+
+  if (REQUIRE_AUTH_FOR_AI && !userId) {
     return res.status(401).json({ error: 'Authentication required. Please sign in to use this feature.' });
   }
- 
-  const token = authHeader.slice('Bearer '.length);
-  const { userId, error: authError } = await supabaseAuthGetUserId(token);
-  if (!userId) {
-    return res.status(401).json({ error: authError || 'Invalid or expired authentication. Please sign in again.' });
+
+  // Rate limit:
+  // - If authenticated: use user-based limiter (best, persistent)
+  // - If anonymous: use best-effort IP-based limiter (in-memory per warm instance)
+  let rateLimit;
+  if (userId && token) {
+    rateLimit = await checkRateLimit(token, userId);
+  } else {
+    const ip = getClientIp(req);
+    rateLimit = checkAnonRateLimit(`ip:${ip}`);
   }
- 
-  // Rate limit
-  const rateLimit = await checkRateLimit(token, userId);
   res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT_REQUESTS));
   res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));
   res.setHeader('X-RateLimit-Reset', String(Math.ceil(rateLimit.resetAt / 1000)));
