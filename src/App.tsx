@@ -300,7 +300,7 @@ function App() {
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-sm text-gray-500">
-            <p>&copy; 2024 MeProofIt. Making learning fun, one correction at a time! 🎯</p>
+            <p>&copy; 2026 MeProofIt. Making learning fun, one correction at a time! 🎯</p>
             <p className="mt-1">
               Designed for students to practice spelling and punctuation skills.
             </p>
