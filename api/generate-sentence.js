@@ -38,12 +38,76 @@ function getBuildFingerprint() {
   );
 }
  
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', process.env.REACT_APP_SITE_URL || '*');
+function getAllowedOrigin(req) {
+  // Get the origin from the request
+  const requestOrigin = req.headers.origin;
+  
+  // If no Origin header, this is either:
+  // 1. Same-origin request (browser doesn't send Origin) - CORS not needed
+  // 2. Server-to-server request - CORS not needed
+  // In both cases, we don't need to set CORS headers
+  if (!requestOrigin) {
+    return null;
+  }
+  
+  // Build list of allowed origins
+  const allowedOrigins = [];
+  
+  // Add production URL if set
+  if (process.env.REACT_APP_SITE_URL) {
+    allowedOrigins.push(process.env.REACT_APP_SITE_URL);
+  }
+  
+  // Add Vercel preview/deployment URLs if available
+  if (process.env.VERCEL_URL) {
+    allowedOrigins.push(`https://${process.env.VERCEL_URL}`);
+  }
+  
+  // In development, allow localhost origins
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:3000');
+    allowedOrigins.push('http://localhost:3001');
+    allowedOrigins.push('http://127.0.0.1:3000');
+    allowedOrigins.push('http://127.0.0.1:3001');
+  }
+  
+  // Check if the request origin is in the allowed list
+  if (allowedOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+  
+  // Origin not in allowed list - return null (will result in no CORS header)
+  // Browser will block the cross-origin request
+  return null;
+}
+
+function setCors(req, res) {
+  const allowedOrigin = getAllowedOrigin(req);
+  
+  if (allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  } else {
+    // Log in development to help debug CORS issues
+    if (process.env.NODE_ENV !== 'production') {
+      const requestOrigin = req.headers.origin;
+      console.warn('CORS: Origin not allowed', {
+        requestOrigin,
+        allowedOrigins: [
+          process.env.REACT_APP_SITE_URL,
+          process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+        ].filter(Boolean)
+      });
+    }
+    // If no allowed origin, don't set the header (browser will block cross-origin requests)
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   // Let the browser read our debug build header
   res.setHeader('Access-Control-Expose-Headers', 'X-MeProofIt-Build');
+  
+  // For preflight requests, allow credentials if needed
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 }
 
 function getClientIp(req) {
@@ -246,7 +310,7 @@ function getGradeDescription(grade) {
 module.exports = async (req, res) => {
   const build = getBuildFingerprint();
   res.setHeader('X-MeProofIt-Build', build);
-  setCors(res);
+  setCors(req, res);
  
   // One log per invocation so we can always see traffic in Vercel logs
   console.log('generate-sentence invoked', {
