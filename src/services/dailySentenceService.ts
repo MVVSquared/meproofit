@@ -148,6 +148,8 @@ export class DailySentenceService {
   }
 
   // Cache daily sentence in localStorage
+  // Security Note: Daily sentences are game content (not sensitive personal data)
+  // Caching is acceptable for performance, but Supabase is preferred for authenticated users
   private static cacheDailySentence(key: string, sentence: DailySentence): void {
     try {
       const cached = this.getCachedDailySentences();
@@ -182,6 +184,8 @@ export class DailySentenceService {
   }
 
   // Save user's daily sentence result to archive
+  // Security Note: Archive data is game results (not sensitive personal data)
+  // For authenticated users, this should also be saved to Supabase (see DatabaseService.saveDailyResult)
   static saveDailyResult(date: string, grade: string, topic: string, 
                         incorrectSentence: string, correctSentence: string, 
                         score: number, attempts: number): void {

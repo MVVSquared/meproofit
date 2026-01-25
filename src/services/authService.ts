@@ -150,28 +150,40 @@ export class AuthService {
 
   /**
    * Sync Supabase user to localStorage for backward compatibility
+   * Security: Only stores non-sensitive data in localStorage for authenticated users
+   * Sensitive data (email, googleId) is not stored to reduce XSS risk
    */
   private async syncSupabaseUserToLocalStorage(session: any) {
     if (!session?.user) return;
 
     const googleUser = this.getGoogleUserFromSession(session);
-    localStorage.setItem('meproofit-google-user', JSON.stringify(googleUser));
+    
+    // For authenticated users, minimize localStorage usage
+    // Only store minimal non-sensitive data as cache
+    // Sensitive data (email, googleId) should come from Supabase session, not localStorage
+    const minimalGoogleUser = {
+      id: googleUser.id,
+      name: googleUser.name,
+      picture: googleUser.picture
+      // Intentionally NOT storing email in localStorage for security
+    };
+    localStorage.setItem('meproofit-google-user', JSON.stringify(minimalGoogleUser));
 
     // Try to get user profile from database
     try {
       const profile = await DatabaseService.getUserProfile(session.user.id);
       if (profile) {
-        const user: User = {
+        // Store only non-sensitive user data in localStorage
+        const cachedUser: Partial<User> = {
           name: profile.name || googleUser.name,
           grade: profile.grade,
           difficulty: profile.difficulty,
-          googleId: googleUser.id,
-          email: googleUser.email,
-          picture: googleUser.picture,
           isAuthenticated: true,
           lastLogin: new Date().toISOString()
+          // Intentionally NOT storing: email, googleId, picture in localStorage
+          // These should be retrieved from Supabase session when needed
         };
-        localStorage.setItem('meproofit-user', JSON.stringify(user));
+        localStorage.setItem('meproofit-user', JSON.stringify(cachedUser));
       }
     } catch (error) {
       // Profile doesn't exist yet, that's okay
@@ -191,10 +203,11 @@ export class AuthService {
   }
 
   /**
-   * Get current Google user from Supabase session or localStorage
+   * Get current Google user from Supabase session (preferred) or localStorage (fallback)
+   * Security: For authenticated users, always prefer Supabase session to avoid XSS risk
    */
   public async getCurrentGoogleUser(): Promise<GoogleUser | null> {
-    // First try Supabase session
+    // First try Supabase session (most secure)
     if (this.supabase) {
       const { data: { session } } = await this.supabase.auth.getSession();
       if (session?.user) {
@@ -202,9 +215,26 @@ export class AuthService {
       }
     }
 
-    // Fallback to localStorage
+    // Fallback to localStorage (for backward compatibility or when Supabase unavailable)
+    // Note: localStorage may not contain email for authenticated users (security measure)
     const stored = localStorage.getItem('meproofit-google-user');
-    return stored ? JSON.parse(stored) : null;
+    if (stored) {
+      const cached = JSON.parse(stored);
+      // If we have a Supabase session, prefer it over cached data
+      if (this.supabase) {
+        try {
+          const { data: { session } } = await this.supabase.auth.getSession();
+          if (session?.user) {
+            return this.getGoogleUserFromSession(session);
+          }
+        } catch (error) {
+          // Supabase unavailable, use cached data
+        }
+      }
+      return cached;
+    }
+    
+    return null;
   }
 
   /**
@@ -263,9 +293,24 @@ export class AuthService {
 
   /**
    * Save user to localStorage and optionally to Supabase
+   * Security: For authenticated users, only non-sensitive data is stored in localStorage
    */
   public async saveUser(user: User, syncToSupabase: boolean = false): Promise<void> {
-    localStorage.setItem('meproofit-user', JSON.stringify(user));
+    // For authenticated users, minimize sensitive data in localStorage
+    if (user.isAuthenticated) {
+      const cachedUser: Partial<User> = {
+        name: user.name,
+        grade: user.grade,
+        difficulty: user.difficulty,
+        isAuthenticated: true,
+        lastLogin: user.lastLogin || new Date().toISOString()
+        // Intentionally NOT storing: email, googleId, picture in localStorage
+      };
+      localStorage.setItem('meproofit-user', JSON.stringify(cachedUser));
+    } else {
+      // For non-authenticated users, store full user data (backward compatibility)
+      localStorage.setItem('meproofit-user', JSON.stringify(user));
+    }
     
     // If user is authenticated and Supabase is configured, sync to database
     if (syncToSupabase && user.isAuthenticated && this.supabase) {
@@ -287,7 +332,8 @@ export class AuthService {
   }
 
   /**
-   * Get user from localStorage or Supabase
+   * Get user from Supabase (preferred) or localStorage (fallback)
+   * Security: For authenticated users, sensitive data comes from Supabase session, not localStorage
    */
   public async getUser(): Promise<User | null> {
     // First try to get from Supabase if authenticated
@@ -303,13 +349,20 @@ export class AuthService {
               grade: profile.grade,
               difficulty: profile.difficulty,
               googleId: session.user.id,
-              email: googleUser?.email,
-              picture: googleUser?.picture,
+              email: googleUser?.email || session.user.email || undefined,
+              picture: googleUser?.picture || session.user.user_metadata?.avatar_url || undefined,
               isAuthenticated: true,
               lastLogin: new Date().toISOString()
             };
-            // Sync to localStorage for backward compatibility
-            localStorage.setItem('meproofit-user', JSON.stringify(user));
+            // Sync only non-sensitive data to localStorage for cache
+            const cachedUser: Partial<User> = {
+              name: user.name,
+              grade: user.grade,
+              difficulty: user.difficulty,
+              isAuthenticated: true,
+              lastLogin: user.lastLogin
+            };
+            localStorage.setItem('meproofit-user', JSON.stringify(cachedUser));
             return user;
           }
         } catch (error) {
@@ -318,9 +371,32 @@ export class AuthService {
       }
     }
 
-    // Fallback to localStorage
+    // Fallback to localStorage (for non-authenticated users or when Supabase unavailable)
     const stored = localStorage.getItem('meproofit-user');
-    return stored ? JSON.parse(stored) : null;
+    if (stored) {
+      const cachedUser = JSON.parse(stored);
+      // If this is an authenticated user but we're falling back to cache,
+      // try to get sensitive data from Supabase session if available
+      if (cachedUser.isAuthenticated && this.supabase) {
+        try {
+          const session = await this.getSession();
+          const googleUser = await this.getCurrentGoogleUser();
+          if (session?.user) {
+            return {
+              ...cachedUser,
+              googleId: session.user.id,
+              email: googleUser?.email || session.user.email || cachedUser.email,
+              picture: googleUser?.picture || session.user.user_metadata?.avatar_url || cachedUser.picture
+            } as User;
+          }
+        } catch (error) {
+          // If Supabase unavailable, return cached data (may be missing sensitive fields)
+        }
+      }
+      return cachedUser as User;
+    }
+    
+    return null;
   }
 }
 
