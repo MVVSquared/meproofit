@@ -174,6 +174,19 @@ The React codebase is designed to be easily portable to mobile platforms:
 - Reuse the LLM service logic
 - Better performance for complex animations
 
+## Development Workflow
+
+For detailed guides on using Git and GitHub with this project, see:
+- [Git Workflow Guide](./GIT_WORKFLOW_GUIDE.md) - Basic Git commands and workflow
+- [Git Branching Guide](./GIT_BRANCHING_GUIDE.md) - Working with development branches
+
+### Quick Start
+1. Create a feature branch: `git checkout -b feature/my-feature`
+2. Make your changes
+3. Commit: `git commit -m "Description of changes"`
+4. Push branch: `git push origin feature/my-feature`
+5. Merge to main: `git checkout main && git merge feature/my-feature && git push origin main`
+
 ## Contributing
 
 1. Fork the repository
