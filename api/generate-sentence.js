@@ -13,8 +13,17 @@
  
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_SEC = 60;
-// If you ever want to re-lock this down, set REQUIRE_AUTH_FOR_AI=true in Vercel env vars.
-const REQUIRE_AUTH_FOR_AI = String(process.env.REQUIRE_AUTH_FOR_AI || '').toLowerCase() === 'true';
+
+// Security: Require authentication by default in production
+// Set REQUIRE_AUTH_FOR_AI=false to allow anonymous access (not recommended for production)
+// In development, defaults to false for easier testing
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+const authEnvVar = String(process.env.REQUIRE_AUTH_FOR_AI || '').toLowerCase();
+const REQUIRE_AUTH_FOR_AI = authEnvVar === 'true' 
+  ? true 
+  : authEnvVar === 'false' 
+    ? false 
+    : isProduction; // Default: require auth in production, allow anonymous in development
 
 // Best-effort in-memory rate limit for anonymous users (per warm lambda instance).
 // This is not perfect across all instances, but it restores “no sign-in needed” behavior safely.
@@ -318,6 +327,8 @@ module.exports = async (req, res) => {
     method: req.method,
     url: req.url,
     hasAuthHeader: !!req.headers.authorization,
+    requiresAuth: REQUIRE_AUTH_FOR_AI,
+    isProduction,
     timestamp: new Date().toISOString(),
   });
  
@@ -329,8 +340,9 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed', allowedMethods: ['POST', 'OPTIONS'] });
   }
  
-  // Auth is OPTIONAL by default (restores historical behavior).
-  // If REQUIRE_AUTH_FOR_AI=true, we will enforce sign-in again.
+  // Authentication check
+  // In production, authentication is required by default for security
+  // In development, anonymous access is allowed for easier testing
   const authHeader = req.headers.authorization;
   const hasBearer = typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
 
@@ -340,11 +352,22 @@ module.exports = async (req, res) => {
   if (hasBearer) {
     token = authHeader.slice('Bearer '.length);
     const verified = await supabaseAuthGetUserId(token);
-    if (verified.userId) userId = verified.userId;
+    if (verified.userId) {
+      userId = verified.userId;
+    } else if (REQUIRE_AUTH_FOR_AI) {
+      // Token provided but invalid - reject in production
+      return res.status(401).json({ 
+        error: 'Invalid or expired authentication token. Please sign in again.' 
+      });
+    }
   }
 
+  // Require authentication if configured (default: required in production)
   if (REQUIRE_AUTH_FOR_AI && !userId) {
-    return res.status(401).json({ error: 'Authentication required. Please sign in to use this feature.' });
+    return res.status(401).json({ 
+      error: 'Authentication required. Please sign in to use this feature.',
+      requiresAuth: true
+    });
   }
 
   // Rate limit:
