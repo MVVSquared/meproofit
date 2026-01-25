@@ -27,7 +27,7 @@ const REQUIRE_AUTH_FOR_AI = authEnvVar === 'true'
 
 // Best-effort in-memory rate limit for anonymous users (per warm lambda instance).
 // This is not perfect across all instances, but it restores “no sign-in needed” behavior safely.
-const anonRateMap = new Map(); // key -> { windowStartSec, count }
+// Anonymous rate limiting now uses Supabase (see checkAnonRateLimit function)
  
 const supabaseUrl =
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -129,20 +129,96 @@ function getClientIp(req) {
   return (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
-function checkAnonRateLimit(key) {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const entry = anonRateMap.get(key);
-  if (!entry || nowSec - entry.windowStartSec >= RATE_LIMIT_WINDOW_SEC) {
-    anonRateMap.set(key, { windowStartSec: nowSec, count: 1 });
-    return { allowed: true, remaining: RATE_LIMIT_REQUESTS - 1, resetAt: (nowSec + RATE_LIMIT_WINDOW_SEC) * 1000 };
+async function checkAnonRateLimit(ip) {
+  // Use Supabase for persistent rate limiting across serverless instances
+  // Store anonymous rate limits using a special identifier format: "anon:IP_ADDRESS"
+  const anonUserId = `anon:${ip}`;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Fallback to permissive if Supabase not configured
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT_REQUESTS,
+      resetAt: Date.now() + RATE_LIMIT_WINDOW_SEC * 1000,
+    };
   }
 
-  entry.count += 1;
-  anonRateMap.set(key, entry);
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - RATE_LIMIT_WINDOW_SEC;
 
-  const remaining = Math.max(0, RATE_LIMIT_REQUESTS - entry.count);
-  const allowed = entry.count <= RATE_LIMIT_REQUESTS;
-  const resetAt = (entry.windowStartSec + RATE_LIMIT_WINDOW_SEC) * 1000;
+  // Read recent timestamps for this IP
+  const query =
+    `/rest/v1/rate_limits?select=timestamp` +
+    `&user_id=eq.${encodeURIComponent(anonUserId)}` +
+    `&timestamp=gte.${windowStart}` +
+    `&order=timestamp.desc`;
+
+  let records = [];
+  try {
+    // Use anon key without auth token for anonymous rate limiting
+    const base = normalizeSupabaseUrl(supabaseUrl);
+    const resp = await fetch(`${base}${query}`, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (resp.ok) {
+      const text = await resp.text().catch(() => '');
+      try {
+        const data = text ? JSON.parse(text) : null;
+        if (Array.isArray(data)) records = data;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  } catch {
+    // If rate limiting fails, fail open (availability over strictness)
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT_REQUESTS,
+      resetAt: Date.now() + RATE_LIMIT_WINDOW_SEC * 1000,
+    };
+  }
+
+  const count = records.length;
+  const remaining = Math.max(0, RATE_LIMIT_REQUESTS - count);
+  const allowed = count < RATE_LIMIT_REQUESTS;
+  const resetAt =
+    count > 0 ? (records[records.length - 1].timestamp + RATE_LIMIT_WINDOW_SEC) * 1000 : (now + RATE_LIMIT_WINDOW_SEC) * 1000;
+
+  if (allowed) {
+    // Record request (non-blocking)
+    const base = normalizeSupabaseUrl(supabaseUrl);
+    fetch(`${base}/rest/v1/rate_limits`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ 
+        user_id: anonUserId, 
+        endpoint: 'generate-sentence', 
+        timestamp: now 
+      }),
+    }).catch(() => {});
+
+    // Cleanup old records (non-blocking)
+    const cleanupThreshold = now - RATE_LIMIT_WINDOW_SEC * 2;
+    fetch(
+      `${base}/rest/v1/rate_limits?user_id=eq.${encodeURIComponent(anonUserId)}&timestamp=lt.${cleanupThreshold}`,
+      {
+        method: 'DELETE',
+        headers: {
+          apikey: supabaseAnonKey,
+        },
+      }
+    ).catch(() => {});
+  }
+
   return { allowed, remaining, resetAt };
 }
  
@@ -371,14 +447,14 @@ module.exports = async (req, res) => {
   }
 
   // Rate limit:
-  // - If authenticated: use user-based limiter (best, persistent)
-  // - If anonymous: use best-effort IP-based limiter (in-memory per warm instance)
+  // - If authenticated: use user-based limiter (persistent in Supabase)
+  // - If anonymous: use IP-based limiter (persistent in Supabase, works across instances)
   let rateLimit;
   if (userId && token) {
     rateLimit = await checkRateLimit(token, userId);
   } else {
     const ip = getClientIp(req);
-    rateLimit = checkAnonRateLimit(`ip:${ip}`);
+    rateLimit = await checkAnonRateLimit(ip);
   }
   res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT_REQUESTS));
   res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));
