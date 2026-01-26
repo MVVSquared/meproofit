@@ -16,12 +16,6 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({ user, onMode
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Welcome back, {user.name}! 🎯
         </h1>
-        <p className="text-xl text-gray-600 mb-2">
-          Ready for today's challenge?
-        </p>
-        <p className="text-lg text-gray-500">
-          Start your daily practice
-        </p>
       </div>
 
       <div className="max-w-md mx-auto">
