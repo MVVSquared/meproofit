@@ -67,9 +67,6 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({ user, onMode
       <div className="mt-8 text-center">
         <div className="inline-flex items-center space-x-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-full">
           <span className="text-sm font-medium">💡 Tip:</span>
-          <span className="text-sm">
-            Complete the daily challenge for consistent progress!
-          </span>
         </div>
       </div>
     </div>
