@@ -15,18 +15,18 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({ user, onMode
           Welcome back, {user.name}! 🎯
         </h1>
         <p className="text-xl text-gray-600 mb-2">
-          How would you like to practice today?
+          Ready for today's challenge?
         </p>
         <p className="text-lg text-gray-500">
-          Choose your learning adventure
+          Start your daily practice
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+      <div className="max-w-md mx-auto">
         {/* Daily Sentence Option */}
         <button
           onClick={() => onModeSelect('daily')}
-          className="card hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-center group border-2 border-transparent hover:border-primary-200"
+          className="card hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-center group border-2 border-transparent hover:border-primary-200 w-full"
         >
           <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-200">
             📅
@@ -44,7 +44,8 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({ user, onMode
           </div>
         </button>
 
-        {/* Random Sentences Option */}
+        {/* Random Sentences Option - Hidden for now, kept for future use */}
+        {/* 
         <button
           onClick={() => onModeSelect('random')}
           className="card hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-center group border-2 border-transparent hover:border-primary-200"
@@ -64,13 +65,14 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({ user, onMode
             Explore different topics and difficulty levels
           </div>
         </button>
+        */}
       </div>
 
       <div className="mt-8 text-center">
         <div className="inline-flex items-center space-x-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-full">
           <span className="text-sm font-medium">💡 Tip:</span>
           <span className="text-sm">
-            Try the daily challenge for consistent progress, or random practice for variety!
+            Complete the daily challenge for consistent progress!
           </span>
         </div>
       </div>
