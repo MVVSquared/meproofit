@@ -4,7 +4,9 @@ import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
 import { sanitizeString, validateAndSanitizeSentence } from '../utils/inputSanitization';
-import { RotateCcw, Archive, Database } from 'lucide-react';
+import { RotateCcw, Archive } from 'lucide-react';
+// Database import kept for future use when Test DB button is re-enabled
+// import { Database } from 'lucide-react';
 
 interface GameBoardProps {
   selectedTopic: Topic | null;
@@ -373,6 +375,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               </div>
             </div>
             <div className="flex gap-2">
+              {/* Archive and Test DB buttons removed - kept for future use if needed */}
+              {/* 
               {gameMode === 'daily' && (
                 <>
                   <button
@@ -402,6 +406,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   </button>
                 </>
               )}
+              */}
               {gameMode !== 'daily' && (
                 <button
                   onClick={onBackToTopics}
