@@ -1,6 +1,8 @@
 import React from 'react';
 import { GameMode, User } from '../types';
-import { Calendar, Shuffle } from 'lucide-react';
+import { Calendar } from 'lucide-react';
+// Shuffle import kept for future use when Random Practice is re-enabled
+// import { Shuffle } from 'lucide-react';
 
 interface GameModeSelectorProps {
   user: User;
