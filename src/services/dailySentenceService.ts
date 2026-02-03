@@ -26,11 +26,12 @@ export class DailySentenceService {
     console.log(`Generating daily sentence for ${date}, grade ${grade}, topic ${topic.name}`);
 
     try {
-      // Try to get sentence from LLM
+      // Try to get sentence from LLM (isDaily: true applies grade-based error rules)
       const llmResponse = await LLMService.generateSentenceWithErrors(
         topic.name,
         difficulty,
-        grade
+        grade,
+        true
       );
 
       const dailySentence: DailySentence = {

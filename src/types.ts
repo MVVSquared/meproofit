@@ -46,7 +46,7 @@ export interface ArchiveEntry {
 }
 
 export interface SentenceError {
-  type: 'spelling' | 'punctuation' | 'capitalization';
+  type: 'spelling' | 'punctuation' | 'capitalization' | 'tense' | 'word_placement';
   incorrectText: string;
   correctText: string;
   position: number;

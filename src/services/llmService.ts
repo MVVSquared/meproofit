@@ -8,23 +8,26 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 export class LLMService {
   static async generateSentenceWithErrors(
-    topic: string, 
+    topic: string,
     difficulty: 'easy' | 'medium' | 'hard',
-    grade: string
+    grade: string,
+    isDaily?: boolean
   ): Promise<LLMResponse> {
-    // First, try to get a cached sentence from the database
-    try {
-      const cachedSentence = await DatabaseService.getCachedSentence(topic, grade, difficulty);
-      if (cachedSentence) {
-        console.log('Using cached sentence for topic:', topic);
-        return {
-          incorrectSentence: cachedSentence.incorrectSentence,
-          correctSentence: cachedSentence.correctSentence,
-          errors: cachedSentence.errors
-        };
+    // For daily challenges, skip cache so we always get grade-based error rules
+    if (!isDaily) {
+      try {
+        const cachedSentence = await DatabaseService.getCachedSentence(topic, grade, difficulty);
+        if (cachedSentence) {
+          console.log('Using cached sentence for topic:', topic);
+          return {
+            incorrectSentence: cachedSentence.incorrectSentence,
+            correctSentence: cachedSentence.correctSentence,
+            errors: cachedSentence.errors
+          };
+        }
+      } catch (error) {
+        console.log('Cache lookup failed, generating new sentence:', error);
       }
-    } catch (error) {
-      console.log('Cache lookup failed, generating new sentence:', error);
     }
 
     // Call backend API instead of OpenAI directly (API key is secured on server)
@@ -59,7 +62,7 @@ export class LLMService {
       const postToApi = async (url: string) =>
         axios.post(
           url,
-          { topic, difficulty, grade },
+          { topic, difficulty, grade, isDaily: isDaily ?? false },
           { headers }
         );
 
@@ -259,7 +262,7 @@ Respond ONLY with this exact JSON format (no other text):
       }
       
       // Validate error types
-      const validTypes = ['spelling', 'punctuation', 'capitalization'];
+      const validTypes = ['spelling', 'punctuation', 'capitalization', 'tense', 'word_placement'];
       for (const error of parsed.errors) {
         if (validTypes.indexOf(error.type) === -1) {
           throw new Error(`Invalid error type: ${error.type}`);

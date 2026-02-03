@@ -391,7 +391,79 @@ function getGradeDescription(grade) {
   }
   return 'high school';
 }
- 
+
+// Grade-based error rules for daily sentences only.
+// Returns { errorRulesPrompt, typeHint, validTypes }.
+function getErrorRulesForGrade(grade) {
+  const g = String(grade || '').toLowerCase();
+  // K and 1st: no punctuation. Only spelling, tense, word placement.
+  if (g.includes('k') || g.includes('1st')) {
+    return {
+      errorRulesPrompt: `IMPORTANT - Use ONLY these error types (do NOT use punctuation or capitalization errors):
+- SPELLING errors (common misspellings like "recieve" instead of "receive")
+- TENSE errors (wrong verb form, e.g. "runned" instead of "ran", "goed" instead of "went", "sleeped" instead of "slept")
+- WORD PLACEMENT errors (words in the wrong order; student must reorder to fix)
+
+Do NOT include any missing or incorrect punctuation. Do NOT include capitalization errors. Keep correct punctuation and capitalization in the sentence.`,
+      typeHint: 'spelling|tense|word_placement',
+      validTypes: ['spelling', 'tense', 'word_placement'],
+    };
+  }
+  // 2nd and 3rd: add simple punctuation (periods, question marks, exclamation marks)
+  if (g.includes('2nd') || g.includes('3rd')) {
+    return {
+      errorRulesPrompt: `IMPORTANT - Use ONLY these error types:
+- SPELLING errors (common misspellings)
+- TENSE errors (wrong verb form, e.g. "runned" instead of "ran")
+- WORD PLACEMENT errors (words in wrong order)
+- PUNCTUATION errors: ONLY simple end punctuation - missing or wrong periods (.), question marks (?), or exclamation marks (!). Do NOT use commas or quotation marks yet.
+- CAPITALIZATION errors: first letter of a sentence, proper nouns.
+
+Do NOT use commas, apostrophes, or quotation marks as errors.`,
+      typeHint: 'spelling|tense|word_placement|punctuation|capitalization',
+      validTypes: ['spelling', 'tense', 'word_placement', 'punctuation', 'capitalization'],
+    };
+  }
+  // 4th and 5th: add commas and quotes
+  if (g.includes('4th') || g.includes('5th')) {
+    return {
+      errorRulesPrompt: `IMPORTANT - Use a mix of these error types:
+- SPELLING errors (common misspellings)
+- TENSE errors (wrong verb form)
+- WORD PLACEMENT errors (words in wrong order)
+- PUNCTUATION errors: periods, question marks, exclamation marks, commas, and quotation marks (missing or incorrect).
+- CAPITALIZATION errors: first word of sentence, proper nouns.
+
+You may include commas and quotation marks as error types.`,
+      typeHint: 'spelling|tense|word_placement|punctuation|capitalization',
+      validTypes: ['spelling', 'tense', 'word_placement', 'punctuation', 'capitalization'],
+    };
+  }
+  // Middle, high, beyond: any error types
+  return {
+    errorRulesPrompt: `IMPORTANT: Include a mix of these error types:
+- SPELLING errors (common misspellings like "recieve" instead of "receive")
+- PUNCTUATION errors (missing commas, periods, apostrophes, semicolons, quotes)
+- CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
+- TENSE errors (wrong verb form)
+- WORD PLACEMENT errors (words in wrong order)
+
+CAPITALIZATION RULES - ONLY capitalize:
+- First word of a sentence
+- Proper nouns (names of people, places, specific brands)
+- Days of the week, months
+- Titles when used as proper nouns
+
+DO NOT capitalize:
+- Common nouns (sports, animals, foods, objects)
+- Generic terms (basketball, soccer, pizza, cat, dog)
+- Seasons (spring, summer, fall, winter)
+- School subjects (math, science, history) unless they're proper nouns`,
+    typeHint: 'spelling|punctuation|capitalization|tense|word_placement',
+    validTypes: ['spelling', 'punctuation', 'capitalization', 'tense', 'word_placement'],
+  };
+}
+
 module.exports = async (req, res) => {
   const build = getBuildFingerprint();
   res.setHeader('X-MeProofIt-Build', build);
@@ -472,7 +544,8 @@ module.exports = async (req, res) => {
   const topic = body && body.topic;
   const difficulty = body && body.difficulty;
   const grade = body && body.grade;
- 
+  const isDaily = !!(body && body.isDaily);
+
   if (!topic || !difficulty || !grade) {
     return res.status(400).json({ error: 'Missing required parameters: topic, difficulty, grade' });
   }
@@ -502,31 +575,60 @@ module.exports = async (req, res) => {
   const errorCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
   const contentType = getContentType(sanitizedGrade);
   const gradeDescription = getGradeDescription(sanitizedGrade);
- 
-  const prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student.
- 
+
+  let prompt;
+  let validTypes;
+  if (isDaily) {
+    const rules = getErrorRulesForGrade(sanitizedGrade);
+    validTypes = rules.validTypes;
+    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).
+
+${rules.errorRulesPrompt}
+
+Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
+${sanitizedGrade.includes('K') || sanitizedGrade.includes('1st') || sanitizedGrade.includes('2nd') || sanitizedGrade.includes('3rd') || sanitizedGrade.includes('4th') || sanitizedGrade.includes('5th')
+  ? 'Keep it to 1-2 sentences maximum. Use simple, basic vocabulary appropriate for young children. Avoid complex words or concepts.'
+  : 'Make it 2-3 sentences that form a cohesive paragraph.'}
+
+Respond ONLY with this exact JSON format (no other text):
+{
+  "incorrectSentence": "the ${contentType} with errors",
+  "correctSentence": "the ${contentType} without errors",
+  "errors": [
+    {
+      "type": "${rules.typeHint}",
+      "incorrectText": "the incorrect text",
+      "correctText": "the correct text",
+      "position": 0
+    }
+  ]
+}`;
+  } else {
+    validTypes = ['spelling', 'punctuation', 'capitalization'];
+    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student.
+
 IMPORTANT: Include a mix of these error types:
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
 - PUNCTUATION errors (missing commas, periods, apostrophes, semicolons)
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
- 
+
 CAPITALIZATION RULES - ONLY capitalize:
 - First word of a sentence
 - Proper nouns (names of people, places, specific brands)
 - Days of the week, months
 - Titles when used as proper nouns
- 
+
 DO NOT capitalize:
 - Common nouns (sports, animals, foods, objects)
 - Generic terms (basketball, soccer, pizza, cat, dog)
 - Seasons (spring, summer, fall, winter)
 - School subjects (math, science, history) unless they're proper nouns
- 
+
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
 ${sanitizedGrade.includes('K') || sanitizedGrade.includes('1st') || sanitizedGrade.includes('2nd') || sanitizedGrade.includes('3rd') || sanitizedGrade.includes('4th') || sanitizedGrade.includes('5th')
   ? 'Keep it to 1-2 sentences maximum. Use simple, basic vocabulary appropriate for young children. Avoid complex words or concepts.'
   : 'Make it 2-3 sentences that form a cohesive paragraph.'}
- 
+
 Respond ONLY with this exact JSON format (no other text):
 {
   "incorrectSentence": "the ${contentType} with errors",
@@ -540,6 +642,7 @@ Respond ONLY with this exact JSON format (no other text):
     }
   ]
 }`;
+  }
  
   try {
     const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -590,7 +693,6 @@ Respond ONLY with this exact JSON format (no other text):
     const parsed = JSON.parse(jsonMatch[0]);
     if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) throw new Error('Invalid response structure');
  
-    const validTypes = ['spelling', 'punctuation', 'capitalization'];
     for (const e of parsed.errors) {
       if (!validTypes.includes(e.type)) throw new Error(`Invalid error type: ${e.type}`);
     }
