@@ -445,6 +445,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               className="input-field min-h-[100px] resize-none"
               disabled={isComplete}
               maxLength={1000}
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
             />
           </div>
 
