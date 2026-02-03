@@ -293,6 +293,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <div className="bg-gray-50 p-3 rounded-lg text-gray-700">
               {currentSentence!.correctSentence}
             </div>
+            {!GameLogic.isSentenceCorrect(normalizeString(userInput), currentSentence!.correctSentence) && userInput.trim() && (
+              <>
+                <h3 className="font-semibold text-gray-900 mb-2 mt-4">Your last guess:</h3>
+                <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-gray-700">
+                  {userInput}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
