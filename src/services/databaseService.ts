@@ -163,18 +163,22 @@ export class DatabaseService {
     if (!supabase) {
       throw new Error('Supabase not configured');
     }
+    // Upsert so the same date+grade is only stored once (first writer wins; others no-op)
     const { error } = await supabase
       .from('daily_sentences')
-      .insert({
-        id: dailySentence.id,
-        date: dailySentence.date,
-        grade: dailySentence.grade,
-        topic: dailySentence.topic,
-        incorrect_sentence: dailySentence.incorrectSentence,
-        correct_sentence: dailySentence.correctSentence,
-        errors: dailySentence.errors,
-        difficulty: dailySentence.difficulty
-      });
+      .upsert(
+        {
+          id: dailySentence.id,
+          date: dailySentence.date,
+          grade: dailySentence.grade,
+          topic: dailySentence.topic,
+          incorrect_sentence: dailySentence.incorrectSentence,
+          correct_sentence: dailySentence.correctSentence,
+          errors: dailySentence.errors,
+          difficulty: dailySentence.difficulty
+        },
+        { onConflict: 'id' }
+      );
 
     if (error) throw error;
   }
