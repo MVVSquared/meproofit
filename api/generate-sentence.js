@@ -397,19 +397,16 @@ function getGradeDescription(grade) {
 // sentenceConstructionRules: what punctuation/grammar the sentence itself must NOT use (keeps output in scope).
 function getErrorRulesForGrade(grade) {
   const g = String(grade || '').toLowerCase();
-  // K and 1st: only spelling and word placement (no tense, no punctuation/capitalization as errors).
+  // K and 1st: spelling only (no word placement, tense, or punctuation/capitalization as errors).
   if (g.includes('k') || g.includes('1st')) {
     return {
-      errorRulesPrompt: `IMPORTANT - Use ONLY these error types (do NOT use punctuation or capitalization as errors for the student to fix):
-- SPELLING errors (common misspellings like "recieve" instead of "receive")
-- WORD PLACEMENT errors (words in the wrong order; student must reorder to fix)
+      errorRulesPrompt: `IMPORTANT - Use ONLY spelling errors (do NOT use word placement, tense, punctuation, or capitalization as errors for the student to fix):
+- SPELLING errors only: common misspellings appropriate for K-1 (e.g. "recieve" instead of "receive", "teh" instead of "the", "runing" instead of "running"). Use simple, familiar words.
 
-For WORD PLACEMENT: The correctSentence must be the version that makes sense in English. The incorrectSentence has a word in the wrong place. Example: correct = "The cat ran fast up the tree." (correct: "ran fast"); incorrect = "The cat fast ran up the tree." Do NOT make the "correct" version nonsensical (e.g. "The cat ran up the fast tree" is WRONG—a tree cannot be "fast").
-
-Do NOT include tense errors. Do NOT include missing or incorrect punctuation as errors—the student should not have to correct punctuation. Do NOT include capitalization as an error. The sentence must still be properly capitalized and must end with a period, question mark, or exclamation mark.`,
-      typeHint: 'spelling|word_placement',
-      validTypes: ['spelling', 'word_placement'],
-      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: The sentence MUST end with proper punctuation (a period, question mark, or exclamation mark). Both correctSentence and incorrectSentence must be meaningful English. The correctSentence must make sense (e.g. "ran fast" is correct; "fast tree" is wrong). Do not use semicolons, colons, dashes, commas, or quotation marks in the middle of the sentence.',
+Do NOT include word placement, tense, punctuation, or capitalization errors. The sentence must be properly capitalized and must end with a period, question mark, or exclamation mark.`,
+      typeHint: 'spelling',
+      validTypes: ['spelling'],
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: The sentence MUST end with proper punctuation (a period, question mark, or exclamation mark). Use simple vocabulary. Do not use semicolons, colons, dashes, commas, or quotation marks in the sentence.',
     };
   }
   // 2nd and 3rd: add simple punctuation (periods, question marks, exclamation marks)
