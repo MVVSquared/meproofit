@@ -397,11 +397,12 @@ function getGradeDescription(grade) {
 // sentenceConstructionRules: what punctuation/grammar the sentence itself must NOT use (keeps output in scope).
 function getErrorRulesForGrade(grade) {
   const g = String(grade || '').toLowerCase();
-  // K and 1st: spelling only (no word placement, tense, or punctuation/capitalization as errors).
+  // K and 1st: spelling only, at least 2 errors (no word placement, tense, or punctuation/capitalization as errors).
   if (g.includes('k') || g.includes('1st')) {
     return {
       errorRulesPrompt: `IMPORTANT - Use ONLY spelling errors (do NOT use word placement, tense, punctuation, or capitalization as errors for the student to fix):
 - SPELLING errors only: common misspellings appropriate for K-1 (e.g. "recieve" instead of "receive", "teh" instead of "the", "runing" instead of "running"). Use simple, familiar words.
+- Include at least 2 spelling errors in the incorrect sentence.
 
 Do NOT include word placement, tense, punctuation, or capitalization errors. The sentence must be properly capitalized and must end with a period, question mark, or exclamation mark.`,
       typeHint: 'spelling',
@@ -584,10 +585,12 @@ module.exports = async (req, res) => {
   if (isDaily) {
     const rules = getErrorRulesForGrade(sanitizedGrade);
     validTypes = rules.validTypes;
+    const isK1 = /k|1st/.test(sanitizedGrade.toLowerCase());
+    const dailyErrorCount = isK1 ? Math.max(2, errorCount) : errorCount;
     const constructionRules = rules.sentenceConstructionRules
       ? `\n\n${rules.sentenceConstructionRules}`
       : '';
-    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).
+    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${dailyErrorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).
 
 ${rules.errorRulesPrompt}
 ${constructionRules}
