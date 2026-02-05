@@ -393,20 +393,21 @@ function getGradeDescription(grade) {
 }
 
 // Grade-based error rules for daily sentences only.
-// Returns { errorRulesPrompt, typeHint, validTypes }.
+// Returns { errorRulesPrompt, typeHint, validTypes, sentenceConstructionRules }.
+// sentenceConstructionRules: what punctuation/grammar the sentence itself must NOT use (keeps output in scope).
 function getErrorRulesForGrade(grade) {
   const g = String(grade || '').toLowerCase();
-  // K and 1st: no punctuation. Only spelling, tense, word placement.
+  // K and 1st: only spelling and word placement (no tense, no punctuation/capitalization errors).
   if (g.includes('k') || g.includes('1st')) {
     return {
       errorRulesPrompt: `IMPORTANT - Use ONLY these error types (do NOT use punctuation or capitalization errors):
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
-- TENSE errors (wrong verb form, e.g. "runned" instead of "ran", "goed" instead of "went", "sleeped" instead of "slept")
 - WORD PLACEMENT errors (words in the wrong order; student must reorder to fix)
 
-Do NOT include any missing or incorrect punctuation. Do NOT include capitalization errors. Keep correct punctuation and capitalization in the sentence.`,
-      typeHint: 'spelling|tense|word_placement',
-      validTypes: ['spelling', 'tense', 'word_placement'],
+Do NOT include tense errors. Do NOT include any missing or incorrect punctuation. Do NOT include capitalization errors. Keep correct punctuation and capitalization in the sentence.`,
+      typeHint: 'spelling|word_placement',
+      validTypes: ['spelling', 'word_placement'],
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: Use only periods, question marks, or exclamation marks at the end. Do not use semicolons, colons, dashes, commas, or quotation marks anywhere in the sentence.',
     };
   }
   // 2nd and 3rd: add simple punctuation (periods, question marks, exclamation marks)
@@ -422,9 +423,10 @@ Do NOT include any missing or incorrect punctuation. Do NOT include capitalizati
 Do NOT use commas, apostrophes, or quotation marks as errors.`,
       typeHint: 'spelling|tense|word_placement|punctuation|capitalization',
       validTypes: ['spelling', 'tense', 'word_placement', 'punctuation', 'capitalization'],
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: Use only periods, question marks, or exclamation marks. Do not use commas, quotation marks, semicolons, colons, or dashes anywhere in the sentence.',
     };
   }
-  // 4th and 5th: add commas and quotes
+  // 4th and 5th: add commas and quotes (no semicolons, colons, or dashes)
   if (g.includes('4th') || g.includes('5th')) {
     return {
       errorRulesPrompt: `IMPORTANT - Use a mix of these error types:
@@ -437,6 +439,7 @@ Do NOT use commas, apostrophes, or quotation marks as errors.`,
 You may include commas and quotation marks as error types.`,
       typeHint: 'spelling|tense|word_placement|punctuation|capitalization',
       validTypes: ['spelling', 'tense', 'word_placement', 'punctuation', 'capitalization'],
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: Use only periods, question marks, exclamation marks, commas, and quotation marks. Do NOT use semicolons, colons, or dashes anywhere in the sentence. If you need to join two clauses, use a period and start a new sentence (e.g. "...Earth. It glows..." not "...Earth; it glows...").',
     };
   }
   // Middle, high, beyond: any error types
@@ -461,6 +464,7 @@ DO NOT capitalize:
 - School subjects (math, science, history) unless they're proper nouns`,
     typeHint: 'spelling|punctuation|capitalization|tense|word_placement',
     validTypes: ['spelling', 'punctuation', 'capitalization', 'tense', 'word_placement'],
+    sentenceConstructionRules: '', // no restriction for middle/high/beyond
   };
 }
 
@@ -581,9 +585,13 @@ module.exports = async (req, res) => {
   if (isDaily) {
     const rules = getErrorRulesForGrade(sanitizedGrade);
     validTypes = rules.validTypes;
+    const constructionRules = rules.sentenceConstructionRules
+      ? `\n\n${rules.sentenceConstructionRules}`
+      : '';
     prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${errorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).
 
 ${rules.errorRulesPrompt}
+${constructionRules}
 
 Make the ${contentType} engaging and age-appropriate for ${gradeDescription} students.
 ${sanitizedGrade.includes('K') || sanitizedGrade.includes('1st') || sanitizedGrade.includes('2nd') || sanitizedGrade.includes('3rd') || sanitizedGrade.includes('4th') || sanitizedGrade.includes('5th')
