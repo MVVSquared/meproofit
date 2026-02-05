@@ -404,10 +404,12 @@ function getErrorRulesForGrade(grade) {
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
 - WORD PLACEMENT errors (words in the wrong order; student must reorder to fix)
 
+For WORD PLACEMENT: The correctSentence must be the version that makes sense in English. The incorrectSentence has a word in the wrong place. Example: correct = "The cat ran fast up the tree." (correct: "ran fast"); incorrect = "The cat fast ran up the tree." Do NOT make the "correct" version nonsensical (e.g. "The cat ran up the fast tree" is WRONG—a tree cannot be "fast").
+
 Do NOT include tense errors. Do NOT include missing or incorrect punctuation as errors—the student should not have to correct punctuation. Do NOT include capitalization as an error. The sentence must still be properly capitalized and must end with a period, question mark, or exclamation mark.`,
       typeHint: 'spelling|word_placement',
       validTypes: ['spelling', 'word_placement'],
-      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: The sentence MUST end with proper punctuation (a period, question mark, or exclamation mark). Do not use semicolons, colons, dashes, commas, or quotation marks in the middle of the sentence. Example: "The dog ran fast in the park." not "The dog ran fast in the park".',
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: The sentence MUST end with proper punctuation (a period, question mark, or exclamation mark). Both correctSentence and incorrectSentence must be meaningful English. The correctSentence must make sense (e.g. "ran fast" is correct; "fast tree" is wrong). Do not use semicolons, colons, dashes, commas, or quotation marks in the middle of the sentence.',
     };
   }
   // 2nd and 3rd: add simple punctuation (periods, question marks, exclamation marks)
@@ -416,7 +418,7 @@ Do NOT include tense errors. Do NOT include missing or incorrect punctuation as 
       errorRulesPrompt: `IMPORTANT - Use ONLY these error types:
 - SPELLING errors (common misspellings)
 - TENSE errors (wrong verb form, e.g. "runned" instead of "ran")
-- WORD PLACEMENT errors (words in wrong order)
+- WORD PLACEMENT errors (words in wrong order—correctSentence must make sense, e.g. "ran fast" not "fast tree")
 - PUNCTUATION errors: ONLY simple end punctuation - missing or wrong periods (.), question marks (?), or exclamation marks (!). Do NOT use commas or quotation marks yet.
 - CAPITALIZATION errors: first letter of a sentence, proper nouns.
 
@@ -432,7 +434,7 @@ Do NOT use commas, apostrophes, or quotation marks as errors.`,
       errorRulesPrompt: `IMPORTANT - Use a mix of these error types:
 - SPELLING errors (common misspellings)
 - TENSE errors (wrong verb form)
-- WORD PLACEMENT errors (words in wrong order)
+- WORD PLACEMENT errors (words in wrong order—correctSentence must make sense, e.g. "ran fast" not "fast tree")
 - PUNCTUATION errors: periods, question marks, exclamation marks, commas, and quotation marks (missing or incorrect).
 - CAPITALIZATION errors: first word of sentence, proper nouns.
 
@@ -449,7 +451,7 @@ You may include commas and quotation marks as error types.`,
 - PUNCTUATION errors (missing commas, periods, apostrophes, semicolons, quotes)
 - CAPITALIZATION errors (missing capital letters at start of sentences or proper nouns)
 - TENSE errors (wrong verb form)
-- WORD PLACEMENT errors (words in wrong order)
+- WORD PLACEMENT errors (words in wrong order—correctSentence must make sense, e.g. "ran fast" not "fast tree")
 
 CAPITALIZATION RULES - ONLY capitalize:
 - First word of a sentence
