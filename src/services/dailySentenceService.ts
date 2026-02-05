@@ -7,6 +7,17 @@ export class DailySentenceService {
   private static readonly DAILY_SENTENCE_KEY = 'meproofit-daily-sentences';
   private static readonly DAILY_ARCHIVE_KEY = 'meproofit-daily-archive';
 
+  private static isK1(grade: string): boolean {
+    const g = String(grade || '').toLowerCase();
+    return g.includes('k') || g.includes('1st');
+  }
+
+  private static hasEnoughErrorsForGrade(sentence: DailySentence, grade: string): boolean {
+    if (!this.isK1(grade)) return true;
+    const errors = sentence.errors;
+    return Array.isArray(errors) && errors.length >= 2;
+  }
+
   // Get today's date in YYYY-MM-DD format (GMT)
   static getTodayDate(): string {
     const now = new Date();
@@ -48,10 +59,14 @@ export class DailySentenceService {
 
       console.log('Generated daily sentence:', dailySentence);
 
-      // Try to save to database
+      // Try to save to database (K-1 must have at least 2 errors - don't persist invalid)
       try {
-        await DatabaseService.createDailySentence(dailySentence);
-        console.log('Successfully saved daily sentence to database');
+        if (this.hasEnoughErrorsForGrade(dailySentence, grade)) {
+          await DatabaseService.createDailySentence(dailySentence);
+          console.log('Successfully saved daily sentence to database');
+        } else {
+          console.log('Skipping save: K-1 sentence has fewer than 2 errors');
+        }
       } catch (dbError) {
         console.error('Failed to save daily sentence to database:', dbError);
         // Continue with local cache as fallback
@@ -63,10 +78,14 @@ export class DailySentenceService {
       // Fallback to predefined sentence
       const fallbackSentence = this.getFallbackDailySentence(date, grade, topic);
       
-      // Try to save fallback to database
+      // Try to save fallback to database (K-1 must have at least 2 errors)
       try {
-        await DatabaseService.createDailySentence(fallbackSentence);
-        console.log('Successfully saved fallback daily sentence to database');
+        if (this.hasEnoughErrorsForGrade(fallbackSentence, grade)) {
+          await DatabaseService.createDailySentence(fallbackSentence);
+          console.log('Successfully saved fallback daily sentence to database');
+        } else {
+          console.log('Skipping save of fallback: K-1 sentence has fewer than 2 errors');
+        }
       } catch (dbError) {
         console.error('Failed to save fallback daily sentence to database:', dbError);
       }
@@ -85,9 +104,12 @@ export class DailySentenceService {
     // First, try to get from database
     try {
       const dbSentence = await DatabaseService.getDailySentence(today, user.grade);
-      if (dbSentence) {
+      if (dbSentence && this.hasEnoughErrorsForGrade(dbSentence, user.grade)) {
         console.log('Found daily sentence in database:', dbSentence);
         return dbSentence;
+      }
+      if (dbSentence && !this.hasEnoughErrorsForGrade(dbSentence, user.grade)) {
+        console.log('Ignoring stored sentence with too few errors for K-1, will regenerate');
       }
     } catch (error) {
       console.log('Database lookup failed, will generate new sentence:', error);
@@ -95,17 +117,22 @@ export class DailySentenceService {
     
     // Check local cache as backup
     const cached = this.getCachedDailySentence(cacheKey);
-    if (cached) {
+    if (cached && this.hasEnoughErrorsForGrade(cached, user.grade)) {
       console.log('Found daily sentence in local cache:', cached);
       return cached;
+    }
+    if (cached && !this.hasEnoughErrorsForGrade(cached, user.grade)) {
+      console.log('Ignoring cached sentence with too few errors for K-1, will regenerate');
     }
 
     // Generate new daily sentence
     console.log('No cached sentence found, generating new one...');
     const dailySentence = await this.generateDailySentence(today, user.grade);
     
-    // Cache it locally as backup
-    this.cacheDailySentence(cacheKey, dailySentence);
+    // Cache locally only if valid for grade (e.g. K-1 must have at least 2 errors)
+    if (this.hasEnoughErrorsForGrade(dailySentence, user.grade)) {
+      this.cacheDailySentence(cacheKey, dailySentence);
+    }
     
     return dailySentence;
   }

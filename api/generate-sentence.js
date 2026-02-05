@@ -655,64 +655,74 @@ Respond ONLY with this exact JSON format (no other text):
 }`;
   }
  
+  const isK1Grade = /k|1st/.test(sanitizedGrade.toLowerCase());
+  const maxAttempts = isK1Grade ? 2 : 1;
+
   try {
-    const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${sanitizedGrade} students. Always respond with valid JSON only.`,
-          },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.8,
-        max_tokens: 800,
-      }),
-    });
- 
-    const openAiText = await openAiResp.text();
-    if (!openAiResp.ok) {
-      let parsedErr = null;
-      try {
-        parsedErr = JSON.parse(openAiText);
-      } catch {
-        parsedErr = null;
+    let parsed = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        console.log('K-1 retry: first response had fewer than 2 errors, retrying once.');
       }
-      const openAiStatus = openAiResp.status;
-      const openAiCode = parsedErr && parsedErr.error && parsedErr.error.code;
-      console.error('OpenAI API error:', { openAiStatus, openAiCode, body: parsedErr || openAiText });
-      return res.status(500).json({
-        error: 'Failed to generate sentence. Please try again.',
-        details: { openAiStatus, openAiCode },
+      const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${sanitizedGrade} students. Always respond with valid JSON only.`,
+            },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.8,
+          max_tokens: 800,
+        }),
       });
+
+      const openAiText = await openAiResp.text();
+      if (!openAiResp.ok) {
+        let parsedErr = null;
+        try {
+          parsedErr = JSON.parse(openAiText);
+        } catch {
+          parsedErr = null;
+        }
+        const openAiStatus = openAiResp.status;
+        const openAiCode = parsedErr && parsedErr.error && parsedErr.error.code;
+        console.error('OpenAI API error:', { openAiStatus, openAiCode, body: parsedErr || openAiText });
+        return res.status(500).json({
+          error: 'Failed to generate sentence. Please try again.',
+          details: { openAiStatus, openAiCode },
+        });
+      }
+
+      const openAiJson = JSON.parse(openAiText);
+      const content = openAiJson && openAiJson.choices && openAiJson.choices[0] && openAiJson.choices[0].message && openAiJson.choices[0].message.content;
+      if (typeof content !== 'string') throw new Error('OpenAI response missing message content');
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON found in response');
+
+      parsed = JSON.parse(jsonMatch[0]);
+      if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) throw new Error('Invalid response structure');
+
+      if (isK1Grade && (!Array.isArray(parsed.errors) || parsed.errors.length < 2)) {
+        if (attempt < maxAttempts) continue;
+        throw new Error(`K-1 requires at least 2 errors, got ${parsed.errors ? parsed.errors.length : 0}`);
+      }
+      break;
     }
- 
-    const openAiJson = JSON.parse(openAiText);
-    const content = openAiJson && openAiJson.choices && openAiJson.choices[0] && openAiJson.choices[0].message && openAiJson.choices[0].message.content;
-    if (typeof content !== 'string') throw new Error('OpenAI response missing message content');
- 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in response');
- 
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) throw new Error('Invalid response structure');
- 
-    const isK1Response = /k|1st/.test(sanitizedGrade.toLowerCase());
-    if (isK1Response && (!Array.isArray(parsed.errors) || parsed.errors.length < 2)) {
-      throw new Error(`K-1 requires at least 2 errors, got ${parsed.errors ? parsed.errors.length : 0}`);
-    }
- 
+
     for (const e of parsed.errors) {
       if (!validTypes.includes(e.type)) throw new Error(`Invalid error type: ${e.type}`);
     }
- 
+
     return res.status(200).json({
       incorrectSentence: parsed.incorrectSentence,
       correctSentence: parsed.correctSentence,
