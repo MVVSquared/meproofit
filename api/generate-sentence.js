@@ -402,7 +402,7 @@ function getErrorRulesForGrade(grade) {
     return {
       errorRulesPrompt: `IMPORTANT - Use ONLY spelling errors (do NOT use word placement, tense, punctuation, or capitalization as errors for the student to fix):
 - SPELLING errors only: common misspellings appropriate for K-1 (e.g. "recieve" instead of "receive", "teh" instead of "the", "runing" instead of "running"). Use simple, familiar words.
-- Include at least 2 spelling errors in the incorrect sentence.
+- You MUST include exactly 2 spelling errors. The "errors" array in your JSON must have exactly 2 items. One error is not acceptable.
 
 Do NOT include word placement, tense, punctuation, or capitalization errors. The sentence must be properly capitalized and must end with a period, question mark, or exclamation mark.`,
       typeHint: 'spelling',
@@ -586,11 +586,12 @@ module.exports = async (req, res) => {
     const rules = getErrorRulesForGrade(sanitizedGrade);
     validTypes = rules.validTypes;
     const isK1 = /k|1st/.test(sanitizedGrade.toLowerCase());
-    const dailyErrorCount = isK1 ? Math.max(2, errorCount) : errorCount;
+    const dailyErrorCount = isK1 ? 2 : errorCount; // K-1 always exactly 2 errors
     const constructionRules = rules.sentenceConstructionRules
       ? `\n\n${rules.sentenceConstructionRules}`
       : '';
-    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${dailyErrorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).
+    const k1ErrorRequirement = isK1 ? '\nCRITICAL: Your response must have exactly 2 spelling errors. The errors array must contain exactly 2 objects. Returning only 1 error is invalid.' : '';
+    prompt = `Create a ${contentType} about ${sanitizedTopic} with exactly ${dailyErrorCount} errors for a ${difficulty} level ${gradeDescription} student (daily challenge).${k1ErrorRequirement}
 
 ${rules.errorRulesPrompt}
 ${constructionRules}
@@ -702,6 +703,11 @@ Respond ONLY with this exact JSON format (no other text):
  
     const parsed = JSON.parse(jsonMatch[0]);
     if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) throw new Error('Invalid response structure');
+ 
+    const isK1Response = /k|1st/.test(sanitizedGrade.toLowerCase());
+    if (isK1Response && (!Array.isArray(parsed.errors) || parsed.errors.length < 2)) {
+      throw new Error(`K-1 requires at least 2 errors, got ${parsed.errors ? parsed.errors.length : 0}`);
+    }
  
     for (const e of parsed.errors) {
       if (!validTypes.includes(e.type)) throw new Error(`Invalid error type: ${e.type}`);
