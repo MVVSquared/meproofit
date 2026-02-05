@@ -397,17 +397,17 @@ function getGradeDescription(grade) {
 // sentenceConstructionRules: what punctuation/grammar the sentence itself must NOT use (keeps output in scope).
 function getErrorRulesForGrade(grade) {
   const g = String(grade || '').toLowerCase();
-  // K and 1st: only spelling and word placement (no tense, no punctuation/capitalization errors).
+  // K and 1st: only spelling and word placement (no tense, no punctuation/capitalization as errors).
   if (g.includes('k') || g.includes('1st')) {
     return {
-      errorRulesPrompt: `IMPORTANT - Use ONLY these error types (do NOT use punctuation or capitalization errors):
+      errorRulesPrompt: `IMPORTANT - Use ONLY these error types (do NOT use punctuation or capitalization as errors for the student to fix):
 - SPELLING errors (common misspellings like "recieve" instead of "receive")
 - WORD PLACEMENT errors (words in the wrong order; student must reorder to fix)
 
-Do NOT include tense errors. Do NOT include any missing or incorrect punctuation. Do NOT include capitalization errors. Keep correct punctuation and capitalization in the sentence.`,
+Do NOT include tense errors. Do NOT include missing or incorrect punctuation as errors—the student should not have to correct punctuation. Do NOT include capitalization as an error. The sentence must still be properly capitalized and must end with a period, question mark, or exclamation mark.`,
       typeHint: 'spelling|word_placement',
       validTypes: ['spelling', 'word_placement'],
-      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: Use only periods, question marks, or exclamation marks at the end. Do not use semicolons, colons, dashes, commas, or quotation marks anywhere in the sentence.',
+      sentenceConstructionRules: 'SENTENCE CONSTRUCTION: The sentence MUST end with proper punctuation (a period, question mark, or exclamation mark). Do not use semicolons, colons, dashes, commas, or quotation marks in the middle of the sentence. Example: "The dog ran fast in the park." not "The dog ran fast in the park".',
     };
   }
   // 2nd and 3rd: add simple punctuation (periods, question marks, exclamation marks)
