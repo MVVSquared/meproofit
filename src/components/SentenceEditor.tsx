@@ -40,6 +40,8 @@ export const SentenceEditor: React.FC<SentenceEditorProps> = ({
   const originalWords = toWords(originalValue || '');
 
   const editorOpen = editor !== null;
+  const editorMode = editor?.mode;
+  const editorIndex = editor?.index;
 
   useEffect(() => {
     if (!editorOpen) return;
@@ -52,14 +54,14 @@ export const SentenceEditor: React.FC<SentenceEditorProps> = ({
   }, [editorOpen]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editorMode || editorIndex === undefined) return;
 
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus();
     }, 50);
 
     return () => window.clearTimeout(focusTimer);
-  }, [editor?.mode, editor?.index]);
+  }, [editorMode, editorIndex]);
 
   const closeEditor = () => setEditor(null);
 
