@@ -115,12 +115,13 @@ function App() {
   };
 
   const handleBackFromSettings = () => {
-    setCurrentView('game-board');
+    setCurrentView(gameMode ? 'game-board' : 'game-mode-selector');
   };
 
   const handleUserUpdate = (updatedUser: User) => {
     setUser(updatedUser);
-    setCurrentView('game-board');
+    setTempGradeForDaily(null);
+    setCurrentView('game-mode-selector');
   };
 
   const handleGradeChange = (newGrade: string) => {
@@ -253,7 +254,7 @@ function App() {
           <TopicSelector onTopicSelect={handleTopicSelect} />
         )}
         
-        {currentView === 'game-board' && user && (
+        {currentView === 'game-board' && user && gameMode && (
           <GameBoard
             key={`${gameMode}-${getEffectiveGrade()}`}
             selectedTopic={selectedTopic}

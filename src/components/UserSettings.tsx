@@ -71,7 +71,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
       };
 
       // Update localStorage using auth service
-      authService.saveUser(updatedUser);
+      await authService.saveUser(updatedUser, Boolean(updatedUser.isAuthenticated));
       
       // Call parent handler to update app state
       onUserUpdate(updatedUser);
@@ -97,7 +97,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, onBack, onUser
           className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
         >
           <ArrowLeft size={20} />
-          Back to Game
+          Back
         </button>
         <h1 className="text-2xl font-bold text-gray-900">User Settings</h1>
       </div>
