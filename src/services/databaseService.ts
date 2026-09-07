@@ -275,6 +275,38 @@ export class DatabaseService {
       .filter((entry): entry is ArchiveEntry => entry !== null && entry.grade === grade);
   }
 
+  static async getUserDailyResultsForDate(userId: string, date: string): Promise<ArchiveEntry[]> {
+    if (!supabase) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('user_daily_results')
+      .select(`
+        score,
+        attempts,
+        user_input,
+        corrections,
+        daily_sentence_id,
+        daily_sentences (
+          date,
+          grade,
+          topic,
+          incorrect_sentence,
+          correct_sentence
+        )
+      `)
+      .eq('user_id', userId)
+      .like('daily_sentence_id', `${date}-%`);
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data
+      .map(result => this.mapDailyResultRow(result, result.daily_sentence_id))
+      .filter((entry): entry is ArchiveEntry => entry !== null && entry.date === date);
+  }
+
   private static mapDailyResultRow(result: any, dailySentenceId: string): ArchiveEntry | null {
     const sentence = Array.isArray(result.daily_sentences)
       ? result.daily_sentences[0]

@@ -374,6 +374,39 @@ export class DailySentenceService {
     return Array.from(byKey.values()).sort((a, b) => b.date.localeCompare(a.date));
   }
 
+  static async getTodaysResultsByGrade(): Promise<Record<string, ArchiveEntry>> {
+    const today = this.getTodayDate();
+    const byGrade: Record<string, ArchiveEntry> = {};
+
+    try {
+      const archive = this.getArchive();
+      Object.keys(archive).forEach(key => {
+        const entry = archive[key] as ArchiveEntry;
+        if (entry.date === today && entry.userScore !== undefined) {
+          byGrade[entry.grade] = entry;
+        }
+      });
+    } catch (error) {
+      console.error('Error reading local results for today:', error);
+    }
+
+    try {
+      const userId = await DatabaseService.getCurrentUserId();
+      if (userId) {
+        const remoteEntries = await DatabaseService.getUserDailyResultsForDate(userId, today);
+        remoteEntries.forEach(entry => {
+          if (entry.userScore !== undefined) {
+            byGrade[entry.grade] = entry;
+          }
+        });
+      }
+    } catch (error) {
+      debugLog('Could not load account results for today, using local results:', error);
+    }
+
+    return byGrade;
+  }
+
   // Get all archive entries
   static getArchive(): Record<string, ArchiveEntry> {
     try {

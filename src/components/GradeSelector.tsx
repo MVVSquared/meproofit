@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { User } from '../types';
-import { ArrowLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArchiveEntry, User } from '../types';
+import { DailySentenceService } from '../services/dailySentenceService';
+import { GameLogic } from '../utils/gameLogic';
+import { ArrowLeft, Check } from 'lucide-react';
 
 interface GradeSelectorProps {
   user: User;
@@ -14,6 +16,7 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
   onBack
 }) => {
   const [selectedGrade, setSelectedGrade] = useState(user.grade);
+  const [todaysResults, setTodaysResults] = useState<Record<string, ArchiveEntry>>({});
 
   const grades = [
     { value: 'K', label: 'K', description: 'Kindergarten' },
@@ -27,8 +30,39 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
     { value: 'beyond', label: 'Beyond', description: 'Advanced' }
   ];
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTodaysResults = async () => {
+      const results = await DailySentenceService.getTodaysResultsByGrade();
+      if (isMounted) {
+        setTodaysResults(results);
+      }
+    };
+
+    loadTodaysResults();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedResult = todaysResults[selectedGrade];
+
   const handleGradeSelect = () => {
     onGradeSelect(selectedGrade);
+  };
+
+  const resultLabel = (entry: ArchiveEntry): string => {
+    return GameLogic.getCompletionCopy(
+      GameLogic.didSucceedFromResult(
+        entry.userInput,
+        entry.correctSentence,
+        entry.userAttempts
+      ),
+      entry.userAttempts || 0,
+      { isDaily: true }
+    ).shortLabel;
   };
 
   return (
@@ -53,35 +87,48 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
 
         {/* Grade Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {grades.map((grade) => (
-            <button
-              key={grade.value}
-              onClick={() => setSelectedGrade(grade.value)}
-              className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
-                selectedGrade === grade.value
-                  ? 'border-primary-500 bg-primary-50 shadow-lg scale-105'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
-              }`}
-            >
-              <div className="text-center">
-                <div className={`text-3xl font-bold mb-2 ${
-                  selectedGrade === grade.value ? 'text-primary-600' : 'text-gray-700'
-                }`}>
-                  {grade.label}
-                </div>
-                <div className={`text-sm ${
-                  selectedGrade === grade.value ? 'text-primary-600' : 'text-gray-500'
-                }`}>
-                  {grade.description}
-                </div>
-                {grade.value === user.grade && (
-                  <div className="mt-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                    Your default grade
+          {grades.map((grade) => {
+            const completed = todaysResults[grade.value];
+            const isSelected = selectedGrade === grade.value;
+
+            return (
+              <button
+                key={grade.value}
+                onClick={() => setSelectedGrade(grade.value)}
+                className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
+                  isSelected
+                    ? 'border-primary-500 bg-primary-50 shadow-lg scale-105'
+                    : completed
+                      ? 'border-green-300 bg-green-50 hover:border-green-400 hover:shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                }`}
+              >
+                <div className="text-center">
+                  <div className={`text-3xl font-bold mb-2 ${
+                    isSelected ? 'text-primary-600' : completed ? 'text-green-700' : 'text-gray-700'
+                  }`}>
+                    {grade.label}
                   </div>
-                )}
-              </div>
-            </button>
-          ))}
+                  <div className={`text-sm ${
+                    isSelected ? 'text-primary-600' : completed ? 'text-green-700' : 'text-gray-500'
+                  }`}>
+                    {grade.description}
+                  </div>
+                  {grade.value === user.grade && (
+                    <div className="mt-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full inline-block">
+                      Your default grade
+                    </div>
+                  )}
+                  {completed && (
+                    <div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      <Check size={12} />
+                      Done today · {resultLabel(completed)}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Selected Grade Info */}
@@ -91,9 +138,11 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
               Selected Grade: {selectedGrade}
             </h3>
             <p className="text-gray-600">
-              {selectedGrade === user.grade 
-                ? "This is your default grade level."
-                : `You'll be trying a daily challenge designed for ${selectedGrade} grade students.`
+              {selectedResult
+                ? `You already finished today's ${selectedGrade} challenge.`
+                : selectedGrade === user.grade
+                  ? "This is your default grade level."
+                  : `You'll be trying a daily challenge designed for ${selectedGrade} grade students.`
               }
             </p>
           </div>
@@ -111,10 +160,10 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
             onClick={handleGradeSelect}
             className="px-8 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-semibold"
           >
-            Try This Grade
+            {selectedResult ? 'See how you did' : 'Try This Grade'}
           </button>
         </div>
       </div>
     </div>
   );
-}; 
+};
