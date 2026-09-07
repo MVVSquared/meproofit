@@ -43,6 +43,8 @@ export interface ArchiveEntry {
   correctSentence: string;
   userScore?: number;
   userAttempts?: number;
+  userInput?: string;
+  corrections?: Correction[];
 }
 
 export interface SentenceError {

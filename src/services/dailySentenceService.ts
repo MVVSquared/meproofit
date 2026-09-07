@@ -1,4 +1,4 @@
-import { DailySentence, ArchiveEntry, User } from '../types';
+import { DailySentence, ArchiveEntry, User, Correction } from '../types';
 import { LLMService } from './llmService';
 import { DatabaseService } from './databaseService';
 import { TOPICS } from '../data/topics';
@@ -218,52 +218,160 @@ export class DailySentenceService {
     }
   }
 
-  // Save user's daily sentence result to archive
-  // Security Note: Archive data is game results (not sensitive personal data)
-  // For authenticated users, this should also be saved to Supabase (see DatabaseService.saveDailyResult)
-  static saveDailyResult(date: string, grade: string, topic: string, 
-                        incorrectSentence: string, correctSentence: string, 
-                        score: number, attempts: number): void {
+  // Save user's daily sentence result to archive.
+  // Guests: browser localStorage. Signed-in users: also their account in Supabase.
+  static async saveDailyResult(
+    sentence: DailySentence,
+    score: number,
+    attempts: number,
+    userInput: string,
+    corrections: Correction[]
+  ): Promise<void> {
+    const entry: ArchiveEntry = {
+      date: sentence.date,
+      grade: sentence.grade,
+      topic: sentence.topic,
+      incorrectSentence: sentence.incorrectSentence,
+      correctSentence: sentence.correctSentence,
+      userScore: score,
+      userAttempts: attempts,
+      userInput,
+      corrections
+    };
+
+    this.saveLocalArchiveEntry(entry);
+
+    try {
+      const userId = await DatabaseService.getCurrentUserId();
+      if (!userId) {
+        return;
+      }
+
+      await DatabaseService.createDailySentence(sentence);
+      await DatabaseService.saveDailyResult(
+        userId,
+        sentence.id,
+        score,
+        attempts,
+        userInput,
+        corrections
+      );
+      debugLog('Saved daily result to account:', sentence.id);
+    } catch (error) {
+      console.error('Error saving daily result to account:', error);
+    }
+  }
+
+  static async getDailyResult(date: string, grade: string): Promise<ArchiveEntry | null> {
+    const key = `${date}-${grade}`;
+    const local = this.getArchive()[key] || null;
+    const localCompleted = local && local.userScore !== undefined ? local : null;
+
+    try {
+      const userId = await DatabaseService.getCurrentUserId();
+      if (userId) {
+        const remote = await DatabaseService.getUserDailyResult(userId, key);
+        if (remote && remote.userScore !== undefined) {
+          this.saveLocalArchiveEntry(remote);
+          return remote;
+        }
+
+        if (localCompleted) {
+          await this.syncLocalResultToAccount(userId, localCompleted);
+          return localCompleted;
+        }
+
+        return null;
+      }
+    } catch (error) {
+      debugLog('Account lookup for daily result failed, using local archive:', error);
+    }
+
+    return localCompleted;
+  }
+
+  private static async syncLocalResultToAccount(userId: string, entry: ArchiveEntry): Promise<void> {
+    if (entry.userScore === undefined) {
+      return;
+    }
+
+    try {
+      const sentenceId = `${entry.date}-${entry.grade}`;
+      let sentence = await DatabaseService.getDailySentence(entry.date, entry.grade);
+
+      if (!sentence && entry.incorrectSentence && entry.correctSentence) {
+        sentence = {
+          id: sentenceId,
+          date: entry.date,
+          grade: entry.grade,
+          topic: entry.topic || 'Daily Challenge',
+          incorrectSentence: entry.incorrectSentence,
+          correctSentence: entry.correctSentence,
+          errors: [],
+          difficulty: 'medium',
+          isDaily: true
+        };
+        await DatabaseService.createDailySentence(sentence);
+      }
+
+      if (!sentence) {
+        return;
+      }
+
+      await DatabaseService.saveDailyResult(
+        userId,
+        sentence.id,
+        entry.userScore,
+        entry.userAttempts || 1,
+        entry.userInput || '',
+        entry.corrections || []
+      );
+      debugLog('Synced local daily result to account:', sentence.id);
+    } catch (error) {
+      console.error('Error syncing local daily result to account:', error);
+    }
+  }
+
+  private static saveLocalArchiveEntry(entry: ArchiveEntry): void {
     try {
       const archive = this.getArchive();
-      const key = `${date}-${grade}`;
-      
-      archive[key] = {
-        date,
-        grade,
-        topic,
-        incorrectSentence,
-        correctSentence,
-        userScore: score,
-        userAttempts: attempts
-      };
-
+      archive[`${entry.date}-${entry.grade}`] = entry;
       localStorage.setItem(this.DAILY_ARCHIVE_KEY, JSON.stringify(archive));
-      debugLog('Saved daily result to local archive:', key);
+      debugLog('Saved daily result to local archive:', `${entry.date}-${entry.grade}`);
     } catch (error) {
       console.error('Error saving daily result locally:', error);
     }
   }
 
   // Get archive entries for a specific grade
-  static getArchiveForGrade(grade: string): ArchiveEntry[] {
+  static async getArchiveForGrade(grade: string): Promise<ArchiveEntry[]> {
+    const byKey = new Map<string, ArchiveEntry>();
+
     try {
       const archive = this.getArchive();
-      const entries: ArchiveEntry[] = [];
-      
       Object.keys(archive).forEach(key => {
         const entry = archive[key] as ArchiveEntry;
         if (entry.grade === grade) {
-          entries.push(entry);
+          byKey.set(`${entry.date}-${entry.grade}`, entry);
         }
       });
-
-      // Sort by date (newest first)
-      return entries.sort((a, b) => b.date.localeCompare(a.date));
     } catch (error) {
-      console.error('Error getting archive for grade:', error);
-      return [];
+      console.error('Error getting local archive for grade:', error);
     }
+
+    try {
+      const userId = await DatabaseService.getCurrentUserId();
+      if (userId) {
+        const remoteEntries = await DatabaseService.getUserDailyResults(userId, grade);
+        remoteEntries.forEach(entry => {
+          byKey.set(`${entry.date}-${entry.grade}`, entry);
+        });
+      }
+    } catch (error) {
+      debugLog('Could not load account archives, using local results:', error);
+    }
+
+    return Array.from(byKey.values()).sort((a, b) => b.date.localeCompare(a.date));
   }
 
   // Get all archive entries

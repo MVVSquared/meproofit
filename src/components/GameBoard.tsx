@@ -43,6 +43,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [isComplete, setIsComplete] = useState(false);
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [isReviewingResult, setIsReviewingResult] = useState(false);
 
   // Normalize user input to handle curly quotes and special characters
   const normalizeString = (str: string) => {
@@ -60,6 +61,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setAttemptHistory([]);
     setIsComplete(false);
     setShowHint(false);
+    setIsReviewingResult(false);
+    setScore(0);
 
     try {
       if (gameMode === 'daily') {
@@ -71,6 +74,36 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         const dailySentence = await DailySentenceService.getTodaysSentence(userForSentence);
         
         debugLog('Setting currentSentence state to:', dailySentence);
+
+        const existingResult = await DailySentenceService.getDailyResult(
+          dailySentence.date,
+          dailySentence.grade
+        );
+
+        if (existingResult && existingResult.userScore !== undefined) {
+          debugLog('Found existing daily result, showing completed view', existingResult);
+          setCurrentSentence({
+            ...dailySentence,
+            incorrectSentence: existingResult.incorrectSentence || dailySentence.incorrectSentence,
+            correctSentence: existingResult.correctSentence || dailySentence.correctSentence,
+            topic: existingResult.topic || dailySentence.topic
+          });
+          setUserInput(existingResult.userInput || '');
+          setAttempts(existingResult.userAttempts || 0);
+          setScore(existingResult.userScore);
+          if (existingResult.corrections && existingResult.corrections.length > 0) {
+            setCorrections(existingResult.corrections);
+            setAttemptHistory([{
+              attempt: existingResult.userAttempts || 1,
+              userInput: existingResult.userInput || dailySentence.incorrectSentence,
+              corrections: existingResult.corrections
+            }]);
+          }
+          setIsComplete(true);
+          setIsReviewingResult(true);
+          return;
+        }
+
         setCurrentSentence(dailySentence);
         
         // Ensure userInput is properly initialized
@@ -115,7 +148,31 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       console.error('Error generating sentence:', error);
       
       if (gameMode === 'daily') {
-        // For daily mode, we need to handle this differently
+        const existingResult = await DailySentenceService.getDailyResult(
+          DailySentenceService.getTodayDate(),
+          user.grade
+        );
+        if (existingResult && existingResult.userScore !== undefined) {
+          debugLog('Found existing daily result after sentence load failed', existingResult);
+          const fallbackDaily = DailySentenceService.getFallbackDailySentence(
+            DailySentenceService.getTodayDate(),
+            user.grade,
+            { id: 'fallback', name: existingResult.topic || 'Daily Challenge' }
+          );
+          setCurrentSentence({
+            ...fallbackDaily,
+            incorrectSentence: existingResult.incorrectSentence || fallbackDaily.incorrectSentence,
+            correctSentence: existingResult.correctSentence || fallbackDaily.correctSentence,
+            topic: existingResult.topic || fallbackDaily.topic
+          });
+          setUserInput(existingResult.userInput || '');
+          setAttempts(existingResult.userAttempts || 0);
+          setScore(existingResult.userScore);
+          setIsComplete(true);
+          setIsReviewingResult(true);
+          return;
+        }
+
         debugLog('Using fallback daily sentence');
         const fallbackDaily = DailySentenceService.getFallbackDailySentence(
           DailySentenceService.getTodayDate(),
@@ -123,7 +180,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           { id: 'fallback', name: 'Daily Challenge' }
         );
         setCurrentSentence(fallbackDaily);
-        setUserInput(fallbackDaily.incorrectSentence); // Pre-fill with incorrect sentence
+        setUserInput(fallbackDaily.incorrectSentence);
       } else {
         // Use fallback sentence for random mode
         debugLog('Using fallback sentence for topic:', selectedTopic?.id);
@@ -204,14 +261,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       // Save daily result if in daily mode
       if (gameMode === 'daily' && currentSentence) {
         const dailySentence = currentSentence as DailySentence;
-        DailySentenceService.saveDailyResult(
-          dailySentence.date,
-          dailySentence.grade,
-          dailySentence.topic,
-          dailySentence.incorrectSentence,
-          dailySentence.correctSentence,
+        void DailySentenceService.saveDailyResult(
+          dailySentence,
           finalScore,
-          newAttempts
+          newAttempts,
+          sanitizedInput,
+          newCorrections
         );
       }
     }
@@ -273,15 +328,25 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="card text-center">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            {GameLogic.isSentenceCorrect(normalizeString(userInput), currentSentence!.correctSentence) 
-              ? 'Great job! You got it right!' 
-              : 'Game Over!'
+            {isReviewingResult
+              ? "You already finished today's challenge"
+              : GameLogic.isSentenceCorrect(normalizeString(userInput), currentSentence!.correctSentence) 
+                ? 'Great job! You got it right!' 
+                : 'Game Over!'
             }
           </h2>
+          {isReviewingResult && (
+            <p className="text-gray-600 mb-4">
+              Here is how you did for {user.grade}.
+            </p>
+          )}
           
           <div className="mb-6">
             <div className="text-lg text-gray-600 mb-2">Your Score:</div>
-            <div className="text-3xl font-bold text-primary-600">{score}</div>
+              <div className="text-3xl font-bold text-primary-600">{score}</div>
+              <div className="text-sm text-gray-500 mt-1">
+                {attempts} attempt{attempts === 1 ? '' : 's'}
+              </div>
           </div>
 
           <div className="mb-6 text-left">

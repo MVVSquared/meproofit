@@ -1,13 +1,7 @@
 import { User } from '../types';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { DatabaseService } from './databaseService';
-
-// Supabase configuration
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-
-// Check if Supabase is configured
-const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+import { supabase as supabaseClient } from './supabaseClient';
 
 export interface GoogleUser {
   id: string;
@@ -21,8 +15,8 @@ export class AuthService {
   private supabase: SupabaseClient | null = null;
 
   private constructor() {
-    if (isSupabaseConfigured) {
-      this.supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+    this.supabase = supabaseClient;
+    if (this.supabase) {
       // Listen for auth state changes
       this.supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session) {

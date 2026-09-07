@@ -25,9 +25,9 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
     { value: 'beyond', label: 'Beyond' }
   ];
 
-  const loadArchives = useCallback(() => {
+  const loadArchives = useCallback(async () => {
     setIsLoading(true);
-    const gradeArchives = DailySentenceService.getArchiveForGrade(selectedGrade);
+    const gradeArchives = await DailySentenceService.getArchiveForGrade(selectedGrade);
     setArchives(gradeArchives);
     setIsLoading(false);
   }, [selectedGrade]);

@@ -1,16 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { DailySentence, ArchiveEntry, GameSentence, LLMResponse } from '../types';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-
-// Check if Supabase is configured
-const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
-
-const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+import { supabase } from './supabaseClient';
 
 export class DatabaseService {
   // User Management
@@ -68,6 +57,14 @@ export class DatabaseService {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) throw error;
     return user;
+  }
+
+  static async getCurrentUserId(): Promise<string | null> {
+    if (!supabase) {
+      return null;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
   }
 
   static async createUserProfile(userId: string, userData: { name: string; grade: string; difficulty: string }) {
@@ -194,6 +191,9 @@ export class DatabaseService {
     if (!supabase) {
       throw new Error('Supabase not configured');
     }
+
+    const existing = await this.getUserDailyResult(userId, dailySentenceId);
+
     const { error } = await supabase
       .from('user_daily_results')
       .upsert({
@@ -209,18 +209,23 @@ export class DatabaseService {
 
     if (error) throw error;
 
-    // Update user stats
-    await this.updateUserStats(userId, score);
+    if (!existing) {
+      await this.updateUserStats(userId, score);
+    }
   }
 
-  static async getUserDailyResults(userId: string, grade: string): Promise<ArchiveEntry[]> {
+  static async getUserDailyResult(userId: string, dailySentenceId: string): Promise<ArchiveEntry | null> {
     if (!supabase) {
-      throw new Error('Supabase not configured');
+      return null;
     }
+
     const { data, error } = await supabase
       .from('user_daily_results')
       .select(`
-        *,
+        score,
+        attempts,
+        user_input,
+        corrections,
         daily_sentences (
           date,
           grade,
@@ -230,20 +235,81 @@ export class DatabaseService {
         )
       `)
       .eq('user_id', userId)
-      .eq('daily_sentences.grade', grade)
+      .eq('daily_sentence_id', dailySentenceId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return this.mapDailyResultRow(data, dailySentenceId);
+  }
+
+  static async getUserDailyResults(userId: string, grade: string): Promise<ArchiveEntry[]> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    const { data, error } = await supabase
+      .from('user_daily_results')
+      .select(`
+        score,
+        attempts,
+        user_input,
+        corrections,
+        daily_sentence_id,
+        daily_sentences (
+          date,
+          grade,
+          topic,
+          incorrect_sentence,
+          correct_sentence
+        )
+      `)
+      .eq('user_id', userId)
       .order('completed_at', { ascending: false });
 
     if (error) throw error;
+    if (!data) return [];
 
-    return data.map(result => ({
-      date: result.daily_sentences.date,
-      grade: result.daily_sentences.grade,
-      topic: result.daily_sentences.topic,
-      incorrectSentence: result.daily_sentences.incorrect_sentence,
-      correctSentence: result.daily_sentences.correct_sentence,
+    return data
+      .map(result => this.mapDailyResultRow(result, result.daily_sentence_id))
+      .filter((entry): entry is ArchiveEntry => entry !== null && entry.grade === grade);
+  }
+
+  private static mapDailyResultRow(result: any, dailySentenceId: string): ArchiveEntry | null {
+    const sentence = Array.isArray(result.daily_sentences)
+      ? result.daily_sentences[0]
+      : result.daily_sentences;
+
+    if (sentence) {
+      return {
+        date: sentence.date,
+        grade: sentence.grade,
+        topic: sentence.topic,
+        incorrectSentence: sentence.incorrect_sentence,
+        correctSentence: sentence.correct_sentence,
+        userScore: result.score,
+        userAttempts: result.attempts,
+        userInput: result.user_input,
+        corrections: result.corrections
+      };
+    }
+
+    const match = String(dailySentenceId || '').match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      date: match[1],
+      grade: match[2],
+      topic: 'Daily Challenge',
+      incorrectSentence: '',
+      correctSentence: '',
       userScore: result.score,
-      userAttempts: result.attempts
-    }));
+      userAttempts: result.attempts,
+      userInput: result.user_input,
+      corrections: result.corrections
+    };
   }
 
   // Sentence Caching
