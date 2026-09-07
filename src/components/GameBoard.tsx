@@ -4,6 +4,7 @@ import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
 import { sanitizeString, validateAndSanitizeSentence } from '../utils/inputSanitization';
+import { debugLog } from '../utils/debug';
 import { RotateCcw, Archive } from 'lucide-react';
 // Database import kept for future use when Test DB button is re-enabled
 // import { Database } from 'lucide-react';
@@ -62,21 +63,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     try {
       if (gameMode === 'daily') {
         // Generate daily sentence
-        console.log('Generating daily sentence for user:', user.name, 'with grade:', gradeOverride || user.grade);
+        debugLog('Generating daily sentence for user:', user.name, 'with grade:', gradeOverride || user.grade);
         
         // If we have a grade override, create a temporary user object with that grade
         const userForSentence = gradeOverride ? { ...user, grade: gradeOverride } : user;
         const dailySentence = await DailySentenceService.getTodaysSentence(userForSentence);
         
-        console.log('Setting currentSentence state to:', dailySentence);
+        debugLog('Setting currentSentence state to:', dailySentence);
         setCurrentSentence(dailySentence);
         
         // Ensure userInput is properly initialized
         if (dailySentence && dailySentence.incorrectSentence) {
-          console.log('Setting userInput to:', dailySentence.incorrectSentence);
+          debugLog('Setting userInput to:', dailySentence.incorrectSentence);
           setUserInput(dailySentence.incorrectSentence);
         } else {
-          console.log('Setting userInput to empty string (fallback)');
+          debugLog('Setting userInput to empty string (fallback)');
           setUserInput(''); // Fallback to empty string
         }
       } else {
@@ -86,8 +87,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           return;
         }
         
-        console.log('Attempting to generate sentence for topic:', selectedTopic.name);
-        console.log('User difficulty:', user.difficulty);
+        debugLog('Attempting to generate sentence for topic:', selectedTopic.name);
+        debugLog('User difficulty:', user.difficulty);
         
         const llmResponse = await LLMService.generateSentenceWithErrors(
           selectedTopic.name,
@@ -95,7 +96,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           user.grade
         );
 
-        console.log('Generated sentence:', llmResponse.incorrectSentence);
+        debugLog('Generated sentence:', llmResponse.incorrectSentence);
 
         const gameSentence: GameSentence = {
           id: Date.now().toString(),
@@ -114,7 +115,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       
       if (gameMode === 'daily') {
         // For daily mode, we need to handle this differently
-        console.log('Using fallback daily sentence');
+        debugLog('Using fallback daily sentence');
         const fallbackDaily = DailySentenceService.getFallbackDailySentence(
           DailySentenceService.getTodayDate(),
           user.grade,
@@ -124,7 +125,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         setUserInput(fallbackDaily.incorrectSentence); // Pre-fill with incorrect sentence
       } else {
         // Use fallback sentence for random mode
-        console.log('Using fallback sentence for topic:', selectedTopic?.id);
+        debugLog('Using fallback sentence for topic:', selectedTopic?.id);
         const fallback = LLMService.getFallbackSentence(selectedTopic?.id || 'basketball', user.grade);
         const gameSentence: GameSentence = {
           id: Date.now().toString(),
@@ -189,10 +190,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const isCorrect = GameLogic.isSentenceCorrect(normalizedUserInput, currentSentence.correctSentence);
     
     // Debug logging
-    console.log('Original user input:', JSON.stringify(userInput));
-    console.log('Normalized user input:', JSON.stringify(normalizedUserInput));
-    console.log('Correct sentence:', JSON.stringify(currentSentence.correctSentence));
-    console.log('Is correct:', isCorrect);
+    debugLog('Original user input:', JSON.stringify(userInput));
+    debugLog('Normalized user input:', JSON.stringify(normalizedUserInput));
+    debugLog('Correct sentence:', JSON.stringify(currentSentence.correctSentence));
+    debugLog('Is correct:', isCorrect);
     
     if (isCorrect || newAttempts >= maxAttempts) {
       const finalScore = GameLogic.calculateScore(newAttempts, maxAttempts, newCorrections);
@@ -315,7 +316,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('Try Different Grade button clicked - calling onGradeChange');
+                    debugLog('Try Different Grade button clicked - calling onGradeChange');
                     // Instead of showing modal, go to grade selection screen
                     if (onGradeChange) {
                       onGradeChange('select'); // Special value to indicate grade selection mode
@@ -350,6 +351,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }
 
   if (!currentSentence) {
+    debugLog('Rendering: currentSentence is null/undefined');
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="card text-center">
@@ -358,6 +360,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       </div>
     );
   }
+
+  debugLog('Rendering with currentSentence:', currentSentence);
+  debugLog('userInput state:', userInput);
 
   return (
     <>
@@ -392,10 +397,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   </button>
                   <button
                     onClick={async () => {
-                      console.log('Testing database connection...');
+                      debugLog('Testing database connection...');
                       try {
                         const status = await DailySentenceService.checkDatabaseStatus();
-                        console.log('Database status:', status);
+                        debugLog('Database status:', status);
                         alert(`Database Status:\nConnected: ${status.connected}\nTables Exist: ${status.tablesExist}\nDaily Sentences: ${status.dailySentencesCount}`);
                       } catch (error) {
                         console.error('Database test failed:', error);

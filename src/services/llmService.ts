@@ -2,6 +2,7 @@ import axios from 'axios';
 import { LLMResponse } from '../types';
 import { DatabaseService } from './databaseService';
 import AuthService from './authService';
+import { debugLog, debugWarn } from '../utils/debug';
 
 // API endpoint for sentence generation (backend handles OpenAI API key securely)
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -18,7 +19,7 @@ export class LLMService {
       try {
         const cachedSentence = await DatabaseService.getCachedSentence(topic, grade, difficulty);
         if (cachedSentence) {
-          console.log('Using cached sentence for topic:', topic);
+          debugLog('Using cached sentence for topic:', topic);
           return {
             incorrectSentence: cachedSentence.incorrectSentence,
             correctSentence: cachedSentence.correctSentence,
@@ -26,7 +27,7 @@ export class LLMService {
           };
         }
       } catch (error) {
-        console.log('Cache lookup failed, generating new sentence:', error);
+        debugLog('Cache lookup failed, generating new sentence:', error);
       }
     }
 
@@ -42,7 +43,7 @@ export class LLMService {
       } catch (authError) {
         // If auth isn't configured/available, we'll continue without a token.
         // The API will return 401 if authentication is required.
-        console.log('Auth token lookup failed, continuing without token:', authError);
+        debugLog('Auth token lookup failed, continuing without token:', authError);
       }
 
       // If no auth token, try to continue without it (for backward compatibility with local users)
@@ -79,7 +80,7 @@ export class LLMService {
           status === 404;
 
         if (shouldRetryWithRelative) {
-          console.warn(
+          debugWarn(
             `API endpoint not found at ${configuredUrl}. Retrying with same-origin ${relativeUrl}.`
           );
           response = await postToApi(relativeUrl);
@@ -97,7 +98,7 @@ export class LLMService {
       // Cache the generated sentence in the database
       try {
         await DatabaseService.cacheSentence(llmResponse, topic, grade, difficulty);
-        console.log('Cached new sentence for topic:', topic);
+        debugLog('Cached new sentence for topic:', topic);
       } catch (cacheError) {
         console.error('Failed to cache sentence:', cacheError);
         // Don't throw error - sentence generation was successful
@@ -107,12 +108,12 @@ export class LLMService {
     } catch (error: any) {
       // Handle authentication errors gracefully
       if (error.response?.status === 401) {
-        console.log('Authentication required for AI-generated sentences. Using fallback sentences.');
+        debugLog('Authentication required for AI-generated sentences. Using fallback sentences.');
         // Don't log the full error for 401s to avoid cluttering console
       } else if (error.response?.status === 429) {
         // Handle rate limit errors
         const retryAfter = error.response?.data?.retryAfter || 60;
-        console.warn(`Rate limit exceeded. Please wait ${retryAfter} seconds before trying again. Using fallback sentences.`);
+        debugWarn(`Rate limit exceeded. Please wait ${retryAfter} seconds before trying again. Using fallback sentences.`);
         // Could show a user-friendly message here if needed
       } else {
         const status = error.response?.status;
@@ -125,7 +126,7 @@ export class LLMService {
           serverDetails
         });
       }
-      console.log('Falling back to predefined sentences');
+      debugLog('Falling back to predefined sentences');
       return this.getFallbackSentence(topic, grade);
     }
   }
@@ -274,7 +275,7 @@ Respond ONLY with this exact JSON format (no other text):
       
       // If we made corrections, log them for debugging
       if (correctedSentence !== parsed.correctSentence) {
-        console.log('Capitalization corrected:', {
+        debugLog('Capitalization corrected:', {
           original: parsed.correctSentence,
           corrected: correctedSentence
         });
