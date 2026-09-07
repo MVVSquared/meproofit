@@ -14,7 +14,6 @@ interface GameBoardProps {
   selectedTopic: Topic | null;
   user: User;
   gameMode: GameMode | null;
-  onGameComplete: (score: number) => void;
   onBackToTopics: () => void;
   onShowArchives: () => void;
   onGradeChange?: (newGrade: string) => void;
@@ -24,7 +23,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   selectedTopic,
   user,
   gameMode,
-  onGameComplete,
   onBackToTopics,
   onShowArchives,
   onGradeChange

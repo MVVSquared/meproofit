@@ -25,8 +25,6 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
-  const [totalScore, setTotalScore] = useState(0);
-  const [gamesPlayed, setGamesPlayed] = useState(0);
   const [tempGradeForDaily, setTempGradeForDaily] = useState<string | null>(null);
   const [authService] = useState(() => AuthService.getInstance());
   const showPrivacyPolicy = isPrivacyPath();
@@ -92,11 +90,6 @@ function App() {
     setCurrentView('game-board');
   };
 
-  const handleGameComplete = (score: number) => {
-    setTotalScore(prev => prev + score);
-    setGamesPlayed(prev => prev + 1);
-  };
-
   const handleBackToTopics = () => {
     if (gameMode === 'daily') {
       // For daily mode, stay on game board (daily sentences don't change topics)
@@ -156,8 +149,6 @@ function App() {
     setUser(null);
     setSelectedTopic(null);
     setGameMode(null);
-    setTotalScore(0);
-    setGamesPlayed(0);
     setTempGradeForDaily(null);
     setCurrentView('user-setup');
   };
@@ -268,7 +259,6 @@ function App() {
             selectedTopic={selectedTopic}
             user={getEffectiveUser()!}
             gameMode={gameMode}
-            onGameComplete={handleGameComplete}
             onBackToTopics={handleBackToTopics}
             onShowArchives={handleShowArchives}
             onGradeChange={handleGradeChange}
