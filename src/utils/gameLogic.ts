@@ -125,6 +125,77 @@ export class GameLogic {
     return corrections;
   }
 
+  static getCompletionCopy(
+    gotItRight: boolean | null,
+    attempts: number,
+    options?: { maxAttempts?: number; isDaily?: boolean }
+  ): { emoji: string; headline: string; shortLabel: string } {
+    const maxAttempts = options?.maxAttempts ?? 4;
+    const isDaily = options?.isDaily ?? true;
+
+    if (gotItRight) {
+      if (attempts <= 1) {
+        return {
+          emoji: '🌟',
+          headline: 'Perfect! You got it in 1 guess.',
+          shortLabel: 'Perfect'
+        };
+      }
+      if (attempts === 2) {
+        return {
+          emoji: '🎉',
+          headline: 'Excellent! You got it in 2 guesses.',
+          shortLabel: 'Excellent'
+        };
+      }
+      if (attempts === 3) {
+        return {
+          emoji: '👍',
+          headline: 'Good job! You got it in 3 guesses.',
+          shortLabel: 'Good job'
+        };
+      }
+      return {
+        emoji: '😅',
+        headline: 'Whew! You got it on the final guess.',
+        shortLabel: 'Whew'
+      };
+    }
+
+    if (gotItRight === false) {
+      return {
+        emoji: '🌤️',
+        headline: isDaily
+          ? 'Too bad, but come back tomorrow to try again.'
+          : 'Too bad — try another sentence.',
+        shortLabel: isDaily ? 'Try tomorrow' : 'Try again'
+      };
+    }
+
+    return {
+      emoji: '📝',
+      headline: attempts === maxAttempts
+        ? 'You used all 4 guesses.'
+        : `You finished in ${attempts} guess${attempts === 1 ? '' : 'es'}.`,
+      shortLabel: `${attempts} guess${attempts === 1 ? '' : 'es'}`
+    };
+  }
+
+  static didSucceedFromResult(
+    userInput: string | undefined,
+    correctSentence: string,
+    attempts: number | undefined,
+    maxAttempts: number = 4
+  ): boolean | null {
+    if (userInput && userInput.trim()) {
+      return this.isSentenceCorrect(userInput, correctSentence);
+    }
+    if (attempts && attempts < maxAttempts) {
+      return true;
+    }
+    return null;
+  }
+
   static isSentenceCorrect(userInput: string, correctSentence: string): boolean {
     // Normalize both strings for comparison - handle both spaces and special characters
     const normalizeString = (str: string) => {

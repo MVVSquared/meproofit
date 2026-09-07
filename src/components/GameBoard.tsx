@@ -41,7 +41,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
-  const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [isReviewingResult, setIsReviewingResult] = useState(false);
 
@@ -62,7 +61,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     setIsComplete(false);
     setShowHint(false);
     setIsReviewingResult(false);
-    setScore(0);
 
     try {
       if (gameMode === 'daily') {
@@ -90,7 +88,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           });
           setUserInput(existingResult.userInput || '');
           setAttempts(existingResult.userAttempts || 0);
-          setScore(existingResult.userScore);
           if (existingResult.corrections && existingResult.corrections.length > 0) {
             setCorrections(existingResult.corrections);
             setAttemptHistory([{
@@ -167,7 +164,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           });
           setUserInput(existingResult.userInput || '');
           setAttempts(existingResult.userAttempts || 0);
-          setScore(existingResult.userScore);
           setIsComplete(true);
           setIsReviewingResult(true);
           return;
@@ -255,7 +251,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     
     if (isCorrect || newAttempts >= maxAttempts) {
       const finalScore = GameLogic.calculateScore(newAttempts, maxAttempts, newCorrections);
-      setScore(finalScore);
       setIsComplete(true);
 
       // Save daily result if in daily mode
@@ -323,31 +318,29 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }
 
   if (isComplete) {
+    const gotItRight = GameLogic.didSucceedFromResult(
+      userInput,
+      currentSentence!.correctSentence,
+      attempts,
+      maxAttempts
+    );
+    const resultCopy = GameLogic.getCompletionCopy(gotItRight, attempts, {
+      maxAttempts,
+      isDaily: gameMode === 'daily'
+    });
+
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="card text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            {isReviewingResult
-              ? "You already finished today's challenge"
-              : GameLogic.isSentenceCorrect(normalizeString(userInput), currentSentence!.correctSentence) 
-                ? 'Great job! You got it right!' 
-                : 'Game Over!'
-            }
-          </h2>
+          <div className="text-6xl mb-4">{resultCopy.emoji}</div>
           {isReviewingResult && (
-            <p className="text-gray-600 mb-4">
-              Here is how you did for {user.grade}.
+            <p className="text-sm font-medium text-gray-500 mb-2">
+              You already finished today&apos;s challenge for {user.grade}.
             </p>
           )}
-          
-          <div className="mb-6">
-            <div className="text-lg text-gray-600 mb-2">Your Score:</div>
-              <div className="text-3xl font-bold text-primary-600">{score}</div>
-              <div className="text-sm text-gray-500 mt-1">
-                {attempts} attempt{attempts === 1 ? '' : 's'}
-              </div>
-          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            {resultCopy.headline}
+          </h2>
 
           <div className="mb-6 text-left">
             <h3 className="font-semibold text-gray-900 mb-2">Correct Answer:</h3>

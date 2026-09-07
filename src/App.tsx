@@ -224,20 +224,6 @@ function App() {
                   </div>
                 </div>
                 
-                {gamesPlayed > 0 && (
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <div>
-                      <span className="font-medium">Games:</span> {gamesPlayed}
-                    </div>
-                    <div>
-                      <span className="font-medium">Total Score:</span> {totalScore}
-                    </div>
-                    <div>
-                      <span className="font-medium">Average:</span> {Math.round(totalScore / gamesPlayed)}
-                    </div>
-                  </div>
-                )}
-                
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleShowSettings}

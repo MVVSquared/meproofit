@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArchiveEntry, User } from '../types';
 import { DailySentenceService } from '../services/dailySentenceService';
-import { ArrowLeft, Calendar, Trophy } from 'lucide-react';
+import { GameLogic } from '../utils/gameLogic';
+import { ArrowLeft, Calendar } from 'lucide-react';
 
 interface DailyArchivesProps {
   user: User;
@@ -161,17 +162,22 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
                 </div>
                 
                 {/* Score Display */}
-                {entry.userScore !== undefined && (
+                {entry.userAttempts !== undefined && (
                   <div className="ml-6 text-center">
-                    <div className="bg-primary-50 rounded-lg p-4 min-w-[80px]">
-                      <div className="flex items-center justify-center mb-2">
-                        <Trophy className="w-5 h-5 text-primary-600" />
+                    <div className="bg-primary-50 rounded-lg p-4 min-w-[120px]">
+                      <div className="text-lg font-bold text-primary-700">
+                        {GameLogic.getCompletionCopy(
+                          GameLogic.didSucceedFromResult(
+                            entry.userInput,
+                            entry.correctSentence,
+                            entry.userAttempts
+                          ),
+                          entry.userAttempts,
+                          { isDaily: true }
+                        ).shortLabel}
                       </div>
-                      <div className="text-2xl font-bold text-primary-600">
-                        {entry.userScore}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {entry.userAttempts} attempt{entry.userAttempts !== 1 ? 's' : ''}
+                      <div className="text-xs text-gray-600 mt-1">
+                        {entry.userAttempts} guess{entry.userAttempts !== 1 ? 'es' : ''}
                       </div>
                     </div>
                   </div>
@@ -195,20 +201,21 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {archives.filter(entry => entry.userScore !== undefined).length}
+                {archives.filter(entry => entry.userAttempts === 1).length}
               </div>
-              <div className="text-sm text-gray-600">With Scores</div>
+              <div className="text-sm text-gray-600">Perfect (1 guess)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {Math.round(
-                  archives
-                    .filter(entry => entry.userScore !== undefined)
-                    .reduce((sum, entry) => sum + (entry.userScore || 0), 0) / 
-                  archives.filter(entry => entry.userScore !== undefined).length
-                ) || 0}
+                {archives.filter(entry =>
+                  GameLogic.didSucceedFromResult(
+                    entry.userInput,
+                    entry.correctSentence,
+                    entry.userAttempts
+                  ) === true
+                ).length}
               </div>
-              <div className="text-sm text-gray-600">Average Score</div>
+              <div className="text-sm text-gray-600">Solved</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
@@ -219,7 +226,7 @@ export const DailyArchives: React.FC<DailyArchivesProps> = ({ user, onBack }) =>
                   archives.filter(entry => entry.userAttempts !== undefined).length
                 ) || 0}
               </div>
-              <div className="text-sm text-gray-600">Avg Attempts</div>
+              <div className="text-sm text-gray-600">Avg guesses</div>
             </div>
           </div>
         </div>
