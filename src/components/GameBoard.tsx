@@ -270,7 +270,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       return <span>{inputText}</span>;
     }
 
-    const userWords = inputText.split(' ');
+    const userWords = GameLogic.tokenize(inputText);
     const parts: React.ReactNode[] = [];
 
     userWords.forEach((word, wordIndex) => {

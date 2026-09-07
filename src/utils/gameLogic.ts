@@ -1,128 +1,143 @@
 import { Correction, SentenceError } from '../types';
 import { validateAndSanitizeSentence, normalizeSentenceInput, isSafeInput } from './inputSanitization';
 
+type AlignPair = { leftIndex: number | null; rightIndex: number | null };
+
 export class GameLogic {
+  static normalizeForCompare(str: string): string {
+    return str
+      .replace(/[''′‛]/g, "'")
+      .replace(/[""″‟]/g, '"')
+      .replace(/[–—]/g, '-')
+      .replace(/\u2019/g, "'");
+  }
+
+  static tokenize(sentence: string): string[] {
+    return this.normalizeForCompare(sentence).trim().split(/\s+/).filter(Boolean);
+  }
+
   static checkCorrections(
     userInput: string,
     correctSentence: string,
     originalIncorrectSentence: string,
-    errors: SentenceError[]
+    _errors: SentenceError[]
   ): Correction[] {
+    const userWords = this.tokenize(userInput);
+    const originalWords = this.tokenize(originalIncorrectSentence);
+    const correctWords = this.tokenize(correctSentence);
+    const intendedByOriginalIndex = this.mapIntendedFixes(originalWords, correctWords);
+    const alignment = this.alignWords(originalWords, userWords);
     const corrections: Correction[] = [];
-    
-    // Normalize all sentences to handle curly quotes and special characters
-    const normalizeString = (str: string) => {
-      return str
-        .replace(/[''′‛]/g, "'")  // Replace curly/smart apostrophes with straight ones
-        .replace(/[""″‟]/g, '"')  // Replace curly/smart quotes with straight ones
-        .replace(/[–—]/g, '-')  // Replace em/en dashes with hyphens
-        .replace(/\u2019/g, "'"); // Replace right single quotation mark (U+2019) with straight apostrophe
-    };
-    
-    const normalizedUserInput = normalizeString(userInput);
-    const normalizedOriginalSentence = normalizeString(originalIncorrectSentence);
-    
-    // Create a map of expected corrections from the original sentence
-    const expectedCorrections = new Map<string, string>();
-    errors.forEach(error => {
-      expectedCorrections.set(error.incorrectText, error.correctText);
-    });
 
-    // Split normalized sentences into words for comparison
-    const userWords = normalizedUserInput.split(' ');
-    const originalWords = normalizedOriginalSentence.split(' ');
-    
-    // Use a more flexible approach to detect changes
-    let userIndex = 0;
-    let originalIndex = 0;
-    
-    while (userIndex < userWords.length && originalIndex < originalWords.length) {
-      const userWord = userWords[userIndex];
-      const originalWord = originalWords[originalIndex];
-      
-      // If words match, move both indices forward
-      if (userWord === originalWord) {
-        userIndex++;
-        originalIndex++;
-        continue;
+    alignment.forEach(pair => {
+      if (pair.rightIndex === null) {
+        return;
       }
-      
-      // Check if this is a known error correction
-      const expectedCorrection = expectedCorrections.get(originalWord);
-      if (expectedCorrection && userWord === expectedCorrection) {
-        corrections.push({
-          type: 'correct',
-          originalText: originalWord,
-          correctedText: userWord,
-          position: userIndex
-        });
-        userIndex++;
-        originalIndex++;
-        continue;
+
+      const userWord = userWords[pair.rightIndex];
+      const originalWord = pair.leftIndex !== null ? originalWords[pair.leftIndex] : '';
+
+      if (pair.leftIndex !== null && userWord === originalWord) {
+        return;
       }
-      
-      // Check if user split a word (e.g., "Highschool" -> "High school")
-      if (originalWord && userWord && originalWord.length > userWord.length && userIndex + 1 < userWords.length) {
-        const nextUserWord = userWords[userIndex + 1];
-        const combinedWords = userWord + ' ' + nextUserWord;
-        
-        if (combinedWords === originalWord) {
-          // User split a word correctly
-          corrections.push({
-            type: 'correct',
-            originalText: originalWord,
-            correctedText: userWord + ' ' + nextUserWord,
-            position: userIndex
-          });
-          userIndex += 2; // Skip both words
-          originalIndex++;
-          continue;
-        }
+
+      let isCorrectChange = false;
+      if (pair.leftIndex !== null && intendedByOriginalIndex.has(pair.leftIndex)) {
+        isCorrectChange = userWord === intendedByOriginalIndex.get(pair.leftIndex);
+      } else if (pair.leftIndex !== null && pair.leftIndex < correctWords.length) {
+        isCorrectChange = userWord === correctWords[pair.leftIndex];
+      } else if (pair.rightIndex < correctWords.length) {
+        isCorrectChange = userWord === correctWords[pair.rightIndex];
       }
-      
-      // Check if user combined words (e.g., "High school" -> "Highschool")
-      if (userWord && originalWord && userWord.length > originalWord.length && originalIndex + 1 < originalWords.length) {
-        const nextOriginalWord = originalWords[originalIndex + 1];
-        const combinedOriginal = originalWord + ' ' + nextOriginalWord;
-        
-        if (userWord === combinedOriginal) {
-          // User combined words correctly
-          corrections.push({
-            type: 'correct',
-            originalText: originalWord + ' ' + nextOriginalWord,
-            correctedText: userWord,
-            position: userIndex
-          });
-          userIndex++;
-          originalIndex += 2; // Skip both original words
-          continue;
-        }
-      }
-      
-      // If we get here, it's an incorrect change
+
       corrections.push({
-        type: 'incorrect',
+        type: isCorrectChange ? 'correct' : 'incorrect',
         originalText: originalWord,
         correctedText: userWord,
-        position: userIndex
+        position: pair.rightIndex
       });
-      
-      userIndex++;
-      originalIndex++;
-    }
-    
-    // Handle remaining words
-    while (userIndex < userWords.length) {
-      corrections.push({
-        type: 'incorrect',
-        originalText: '',
-        correctedText: userWords[userIndex],
-        position: userIndex
-      });
-      userIndex++;
-    }
-    
+    });
+
     return corrections;
+  }
+
+  private static mapIntendedFixes(originalWords: string[], correctWords: string[]): Map<number, string> {
+    const intended = new Map<number, string>();
+
+    if (originalWords.length === correctWords.length) {
+      originalWords.forEach((word, index) => {
+        if (word !== correctWords[index]) {
+          intended.set(index, correctWords[index]);
+        }
+      });
+      return intended;
+    }
+
+    this.alignWords(originalWords, correctWords).forEach(pair => {
+      if (pair.leftIndex === null || pair.rightIndex === null) {
+        return;
+      }
+      if (originalWords[pair.leftIndex] !== correctWords[pair.rightIndex]) {
+        intended.set(pair.leftIndex, correctWords[pair.rightIndex]);
+      }
+    });
+
+    return intended;
+  }
+
+  private static alignWords(left: string[], right: string[]): AlignPair[] {
+    const pairs: AlignPair[] = [];
+    let leftIndex = 0;
+    let rightIndex = 0;
+
+    while (leftIndex < left.length && rightIndex < right.length) {
+      if (left[leftIndex] === right[rightIndex]) {
+        pairs.push({ leftIndex, rightIndex });
+        leftIndex += 1;
+        rightIndex += 1;
+        continue;
+      }
+
+      const nextLeft = this.findAhead(left, right[rightIndex], leftIndex + 1);
+      const nextRight = this.findAhead(right, left[leftIndex], rightIndex + 1);
+
+      if (nextLeft !== -1 && (nextRight === -1 || nextLeft - leftIndex <= nextRight - rightIndex)) {
+        while (leftIndex < nextLeft) {
+          pairs.push({ leftIndex, rightIndex: null });
+          leftIndex += 1;
+        }
+      } else if (nextRight !== -1) {
+        while (rightIndex < nextRight) {
+          pairs.push({ leftIndex: null, rightIndex });
+          rightIndex += 1;
+        }
+      } else {
+        pairs.push({ leftIndex, rightIndex });
+        leftIndex += 1;
+        rightIndex += 1;
+      }
+    }
+
+    while (leftIndex < left.length) {
+      pairs.push({ leftIndex, rightIndex: null });
+      leftIndex += 1;
+    }
+    while (rightIndex < right.length) {
+      pairs.push({ leftIndex: null, rightIndex });
+      rightIndex += 1;
+    }
+
+    return pairs;
+  }
+
+  private static findAhead(words: string[], target: string, start: number, window: number = 3): number {
+    const end = Math.min(words.length, start + window);
+    for (let index = start; index < end; index += 1) {
+      if (words[index] === target) {
+        return index;
+      }
+    }
+    return -1;
   }
 
   static getCompletionCopy(
