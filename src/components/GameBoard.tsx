@@ -3,8 +3,9 @@ import { Topic, GameSentence, Correction, User, GameMode, DailySentence } from '
 import { LLMService } from '../services/llmService';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { sanitizeString, validateAndSanitizeSentence } from '../utils/inputSanitization';
+import { validateAndSanitizeSentence } from '../utils/inputSanitization';
 import { debugLog } from '../utils/debug';
+import { SentenceEditor } from './SentenceEditor';
 import { RotateCcw, Archive } from 'lucide-react';
 // Database import kept for future use when Test DB button is re-enabled
 // import { Database } from 'lucide-react';
@@ -213,12 +214,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           newAttempts
         );
       }
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSubmit();
     }
   };
 
@@ -431,32 +426,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-3">Original Sentence:</h3>
             <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-              <p className="text-lg text-gray-800">{currentSentence.incorrectSentence}</p>
+              <p className="text-lg text-gray-800 leading-relaxed break-words">{currentSentence.incorrectSentence}</p>
             </div>
           </div>
 
           {/* User Input */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-3">Your Correction:</h3>
-            <textarea
+            <SentenceEditor
               value={userInput}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                // Validate input length
-                if (newValue.length <= 1000) {
-                  // Sanitize input in real-time
-                  const sanitized = sanitizeString(newValue);
-                  setUserInput(sanitized);
-                }
-              }}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your corrected sentence here..."
-              className="input-field min-h-[100px] resize-none"
+              onChange={setUserInput}
+              originalValue={currentSentence.incorrectSentence}
               disabled={isComplete}
               maxLength={1000}
-              spellCheck={false}
-              autoComplete="off"
-              autoCorrect="off"
             />
           </div>
 
