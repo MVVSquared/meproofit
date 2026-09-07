@@ -47,8 +47,6 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
     };
   }, []);
 
-  const selectedResult = todaysResults[selectedGrade];
-
   const handleGradeSelect = () => {
     onGradeSelect(selectedGrade);
   };
@@ -68,7 +66,6 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="max-w-4xl mx-auto px-6">
-        {/* Header */}
         <div className="text-center mb-8">
           <button
             onClick={onBack}
@@ -85,7 +82,6 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
           </p>
         </div>
 
-        {/* Grade Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {grades.map((grade) => {
             const completed = todaysResults[grade.value];
@@ -131,24 +127,20 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
           })}
         </div>
 
-        {/* Selected Grade Info */}
         <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Selected Grade: {selectedGrade}
             </h3>
             <p className="text-gray-600">
-              {selectedResult
-                ? `You already finished today's ${selectedGrade} challenge.`
-                : selectedGrade === user.grade
-                  ? "This is your default grade level."
-                  : `You'll be trying a daily challenge designed for ${selectedGrade} grade students.`
+              {selectedGrade === user.grade
+                ? "This is your default grade level."
+                : `You'll be trying a daily challenge designed for ${selectedGrade} grade students.`
               }
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex justify-center gap-4">
           <button
             onClick={onBack}
@@ -160,7 +152,7 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
             onClick={handleGradeSelect}
             className="px-8 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-semibold"
           >
-            {selectedResult ? 'See how you did' : 'Try This Grade'}
+            Try This Grade
           </button>
         </div>
       </div>
