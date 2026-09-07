@@ -37,7 +37,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     userInput: string;
     corrections: Correction[];
   }>>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
@@ -350,7 +350,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   }
 
   if (!currentSentence) {
-    console.log('Rendering: currentSentence is null/undefined');
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="card text-center">
@@ -359,9 +358,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       </div>
     );
   }
-
-  console.log('Rendering with currentSentence:', currentSentence);
-  console.log('userInput state:', userInput);
 
   return (
     <>

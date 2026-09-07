@@ -294,8 +294,37 @@ Respond ONLY with this exact JSON format (no other text):
     }
   }
 
+  private static getK1FallbackSentence(topic: string): LLMResponse {
+    const topicPhrase = String(topic || 'playground').toLowerCase().trim() || 'playground';
+    const incorrectSentence = `The kids had a reely fun time at the ${topicPhrase} in skool.`;
+    const correctSentence = `The kids had a really fun time at the ${topicPhrase} in school.`;
+    const words = incorrectSentence.split(' ');
+    const errors: LLMResponse['errors'] = [];
+    words.forEach((word, position) => {
+      if (word === 'reely') {
+        errors.push({ type: 'spelling', incorrectText: 'reely', correctText: 'really', position });
+      } else if (word.replace(/[.,!?]$/, '') === 'skool') {
+        const punct = word.slice('skool'.length);
+        errors.push({
+          type: 'spelling',
+          incorrectText: word,
+          correctText: `school${punct}`,
+          position
+        });
+      }
+    });
+    return { incorrectSentence, correctSentence, errors };
+  }
+
   // Fallback method for when LLM is not available
   static getFallbackSentence(topic: string, grade: string): LLMResponse {
+    const normalizedGrade = String(grade || '').toLowerCase();
+    const isK1 = normalizedGrade.indexOf('k') !== -1 || normalizedGrade.indexOf('1st') !== -1;
+    if (isK1) {
+      return this.getK1FallbackSentence(topic);
+    }
+
+    const topicKey = String(topic || '').toLowerCase().trim();
     
     const fallbackSentences = {
       basketball: [
@@ -495,7 +524,7 @@ Respond ONLY with this exact JSON format (no other text):
       ]
     };
 
-    const topicSentences = fallbackSentences[topic as keyof typeof fallbackSentences] || fallbackSentences.basketball;
+    const topicSentences = fallbackSentences[topicKey as keyof typeof fallbackSentences] || fallbackSentences.basketball;
     
     // Randomly select one of the sentences for this topic
     const randomIndex = Math.floor(Math.random() * topicSentences.length);

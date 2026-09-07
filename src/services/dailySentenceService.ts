@@ -13,9 +13,15 @@ export class DailySentenceService {
   }
 
   private static hasEnoughErrorsForGrade(sentence: DailySentence, grade: string): boolean {
-    if (!this.isK1(grade)) return true;
+    if (!sentence?.incorrectSentence || !sentence?.correctSentence) return false;
     const errors = sentence.errors;
-    return Array.isArray(errors) && errors.length >= 2;
+    if (!Array.isArray(errors) || errors.length < 2) return false;
+    // K-1 daily sentences must be spelling-only. Reject cached basketball-style
+    // fallbacks that mix in capitalization/punctuation errors.
+    if (this.isK1(grade)) {
+      return errors.every((error) => String(error?.type || '').toLowerCase() === 'spelling');
+    }
+    return true;
   }
 
   // Get today's date in YYYY-MM-DD format (GMT)
@@ -109,7 +115,7 @@ export class DailySentenceService {
         return dbSentence;
       }
       if (dbSentence && !this.hasEnoughErrorsForGrade(dbSentence, user.grade)) {
-        console.log('Ignoring stored sentence with too few errors for K-1, will regenerate');
+        console.log('Ignoring stored sentence that does not match grade error rules, will regenerate');
       }
     } catch (error) {
       console.log('Database lookup failed, will generate new sentence:', error);
@@ -122,7 +128,7 @@ export class DailySentenceService {
       return cached;
     }
     if (cached && !this.hasEnoughErrorsForGrade(cached, user.grade)) {
-      console.log('Ignoring cached sentence with too few errors for K-1, will regenerate');
+      console.log('Ignoring cached sentence that does not match grade error rules, will regenerate');
     }
 
     // Generate new daily sentence

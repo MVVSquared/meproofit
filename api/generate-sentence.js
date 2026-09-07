@@ -468,6 +468,95 @@ DO NOT capitalize:
   };
 }
 
+function normalizeErrorType(type) {
+  const t = String(type || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[\s-]+/g, '_');
+  const aliases = {
+    spell: 'spelling',
+    spelling_error: 'spelling',
+    misspelling: 'spelling',
+    punct: 'punctuation',
+    punctuation_error: 'punctuation',
+    caps: 'capitalization',
+    capitalisation: 'capitalization',
+    capitalization_error: 'capitalization',
+    verb_tense: 'tense',
+    word_order: 'word_placement',
+    placement: 'word_placement',
+  };
+  return aliases[t] || t;
+}
+
+function getServerFallbackSentence(topic, grade) {
+  const safeTopic = String(topic || 'playground').replace(/[<>]/g, '').trim() || 'playground';
+  const topicPhrase = safeTopic.toLowerCase();
+  const g = String(grade || '').toLowerCase();
+  const isK1 = g.includes('k') || g.includes('1st');
+
+  if (isK1) {
+    const incorrectSentence = `The kids had a reely fun time at the ${topicPhrase} in skool.`;
+    const correctSentence = `The kids had a really fun time at the ${topicPhrase} in school.`;
+    const words = incorrectSentence.split(' ');
+    const errors = [];
+    words.forEach((word, position) => {
+      if (word === 'reely') {
+        errors.push({ type: 'spelling', incorrectText: 'reely', correctText: 'really', position });
+      } else if (word.replace(/[.,!?]$/, '') === 'skool') {
+        const punct = word.slice('skool'.length);
+        errors.push({
+          type: 'spelling',
+          incorrectText: word,
+          correctText: `school${punct}`,
+          position,
+        });
+      }
+    });
+    return { incorrectSentence, correctSentence, errors };
+  }
+
+  const incorrectSentence = `the class learned about ${topicPhrase} and it was reely exciting.`;
+  const correctSentence = `The class learned about ${topicPhrase} and it was really exciting.`;
+  const words = incorrectSentence.split(' ');
+  const errors = [{ type: 'capitalization', incorrectText: 'the', correctText: 'The', position: 0 }];
+  words.forEach((word, position) => {
+    if (word === 'reely') {
+      errors.push({ type: 'spelling', incorrectText: 'reely', correctText: 'really', position });
+    }
+  });
+  return { incorrectSentence, correctSentence, errors };
+}
+
+function sendFallbackSentence(res, topic, grade, reason) {
+  console.warn('Using server fallback sentence', { topic, grade, reason });
+  res.setHeader('X-MeProofIt-Fallback', '1');
+  return res.status(200).json(getServerFallbackSentence(topic, grade));
+}
+
+function getSentenceValidationError(parsed, validTypes, isK1Grade) {
+  if (!parsed || !parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) {
+    return 'Invalid response structure';
+  }
+  if (!Array.isArray(parsed.errors)) {
+    return 'errors must be an array';
+  }
+
+  parsed.errors = parsed.errors.map((e) => ({
+    ...e,
+    type: normalizeErrorType(e.type),
+  }));
+
+  const invalid = parsed.errors.filter((e) => !validTypes.includes(e.type));
+  if (invalid.length) {
+    return `Invalid error type: ${invalid.map((e) => e.type).join(', ')}`;
+  }
+  if (isK1Grade && parsed.errors.length < 2) {
+    return `K-1 requires at least 2 spelling errors, got ${parsed.errors.length}`;
+  }
+  return null;
+}
+
 module.exports = async (req, res) => {
   const build = getBuildFingerprint();
   res.setHeader('X-MeProofIt-Build', build);
@@ -573,7 +662,8 @@ module.exports = async (req, res) => {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   if (!OPENAI_API_KEY) {
-    return res.status(500).json({ error: 'API key not configured' });
+    console.error('OPENAI_API_KEY not configured');
+    return sendFallbackSentence(res, sanitizedTopic, sanitizedGrade, 'missing-api-key');
   }
  
   const errorCount = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
@@ -656,14 +746,27 @@ Respond ONLY with this exact JSON format (no other text):
   }
  
   const isK1Grade = /k|1st/.test(sanitizedGrade.toLowerCase());
-  const maxAttempts = isK1Grade ? 2 : 1;
+  const maxAttempts = isDaily ? 3 : 1;
+  const systemPrompt = isK1Grade
+    ? `You are an educational game assistant that creates ${contentType} with intentional SPELLING errors only for ${sanitizedGrade} students. Do not include punctuation, capitalization, tense, or word-placement errors. Always respond with valid JSON only.`
+    : `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${sanitizedGrade} students. Always respond with valid JSON only.`;
 
   try {
     let parsed = null;
+    let lastValidationError = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const userPrompt = lastValidationError
+        ? `${prompt}\n\nPREVIOUS ATTEMPT WAS INVALID: ${lastValidationError} Follow the allowed error types exactly.`
+        : prompt;
+
       if (attempt > 1) {
-        console.log('K-1 retry: first response had fewer than 2 errors, retrying once.');
+        console.log('Retrying sentence generation', {
+          attempt,
+          grade: sanitizedGrade,
+          reason: lastValidationError,
+        });
       }
+
       const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -675,9 +778,9 @@ Respond ONLY with this exact JSON format (no other text):
           messages: [
             {
               role: 'system',
-              content: `You are an educational game assistant that creates ${contentType} with intentional spelling, punctuation, and capitalization errors for ${sanitizedGrade} students. Always respond with valid JSON only.`,
+              content: systemPrompt,
             },
-            { role: 'user', content: prompt },
+            { role: 'user', content: userPrompt },
           ],
           response_format: { type: 'json_object' },
           temperature: 0.8,
@@ -696,31 +799,41 @@ Respond ONLY with this exact JSON format (no other text):
         const openAiStatus = openAiResp.status;
         const openAiCode = parsedErr && parsedErr.error && parsedErr.error.code;
         console.error('OpenAI API error:', { openAiStatus, openAiCode, body: parsedErr || openAiText });
-        return res.status(500).json({
-          error: 'Failed to generate sentence. Please try again.',
-          details: { openAiStatus, openAiCode },
-        });
+        lastValidationError = `OpenAI HTTP ${openAiStatus}${openAiCode ? ` (${openAiCode})` : ''}`;
+        if (attempt < maxAttempts && (openAiStatus === 429 || openAiStatus >= 500)) {
+          continue;
+        }
+        return sendFallbackSentence(res, sanitizedTopic, sanitizedGrade, lastValidationError);
       }
 
       const openAiJson = JSON.parse(openAiText);
       const content = openAiJson && openAiJson.choices && openAiJson.choices[0] && openAiJson.choices[0].message && openAiJson.choices[0].message.content;
-      if (typeof content !== 'string') throw new Error('OpenAI response missing message content');
+      if (typeof content !== 'string') {
+        lastValidationError = 'OpenAI response missing message content';
+        continue;
+      }
 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found in response');
+      if (!jsonMatch) {
+        lastValidationError = 'No JSON found in response';
+        continue;
+      }
 
       parsed = JSON.parse(jsonMatch[0]);
-      if (!parsed.incorrectSentence || !parsed.correctSentence || !parsed.errors) throw new Error('Invalid response structure');
-
-      if (isK1Grade && (!Array.isArray(parsed.errors) || parsed.errors.length < 2)) {
-        if (attempt < maxAttempts) continue;
-        throw new Error(`K-1 requires at least 2 errors, got ${parsed.errors ? parsed.errors.length : 0}`);
+      lastValidationError = getSentenceValidationError(parsed, validTypes, isK1Grade);
+      if (!lastValidationError) {
+        break;
       }
-      break;
+      parsed = null;
     }
 
-    for (const e of parsed.errors) {
-      if (!validTypes.includes(e.type)) throw new Error(`Invalid error type: ${e.type}`);
+    if (!parsed) {
+      return sendFallbackSentence(
+        res,
+        sanitizedTopic,
+        sanitizedGrade,
+        lastValidationError || 'validation failed'
+      );
     }
 
     return res.status(200).json({
@@ -729,8 +842,9 @@ Respond ONLY with this exact JSON format (no other text):
       errors: parsed.errors,
     });
   } catch (e) {
-    console.error('Unhandled generate-sentence error:', { message: e && e.message ? e.message : String(e) });
-    return res.status(500).json({ error: 'Internal server error in sentence generator.' });
+    const message = e && e.message ? e.message : String(e);
+    console.error('Unhandled generate-sentence error:', { message });
+    return sendFallbackSentence(res, sanitizedTopic, sanitizedGrade, message);
   }
 };
 
