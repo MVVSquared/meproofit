@@ -264,6 +264,10 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onUserSetup }) => {
                 {isGoogleSigningIn ? 'Signing in...' : 'Continue with Google'}
               </span>
             </button>
+            <p className="text-xs text-gray-500 text-center">
+              By continuing with Google, you agree to our{' '}
+              <a href="/privacy" className="text-primary-600 hover:underline">Privacy Policy</a>.
+            </p>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

@@ -7,11 +7,18 @@ import { GameModeSelector } from './components/GameModeSelector';
 import { DailyArchives } from './components/DailyArchives';
 import { UserSettings } from './components/UserSettings';
 import { GradeSelector } from './components/GradeSelector';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TOPICS } from './data/topics';
 import AuthService from './services/authService';
 
 
 type GameView = 'user-setup' | 'game-mode-selector' | 'topic-selector' | 'game-board' | 'daily-archives' | 'user-settings' | 'grade-selector';
+
+function isPrivacyPath(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  return path === '/privacy' || path === '/privacy-policy';
+}
 
 function App() {
   const [currentView, setCurrentView] = useState<GameView>('user-setup');
@@ -22,6 +29,7 @@ function App() {
   const [gamesPlayed, setGamesPlayed] = useState(0);
   const [tempGradeForDaily, setTempGradeForDaily] = useState<string | null>(null);
   const [authService] = useState(() => AuthService.getInstance());
+  const showPrivacyPolicy = isPrivacyPath();
 
   // Function to randomly select a topic
   const selectRandomTopic = (): Topic => {
@@ -179,7 +187,9 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-bold text-gray-900">MeProofIt</h1>
+              <a href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700">
+                MeProofIt
+              </a>
               <span className="text-sm bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
                 Beta
               </span>
@@ -250,6 +260,10 @@ function App() {
 
       {/* Main Content */}
       <main className="py-8">
+        {showPrivacyPolicy ? (
+          <PrivacyPolicy />
+        ) : (
+          <>
         {currentView === 'user-setup' && (
           <UserSetup onUserSetup={handleUserSetup} />
         )}
@@ -294,6 +308,8 @@ function App() {
             onBack={() => setCurrentView('game-board')}
           />
         )}
+          </>
+        )}
       </main>
 
       {/* Footer */}
@@ -303,6 +319,11 @@ function App() {
             <p>&copy; 2026 MeProofIt. Making learning fun, one correction at a time!</p>
             <p className="mt-1">
               Designed for students to practice spelling and punctuation skills.
+            </p>
+            <p className="mt-3">
+              <a href="/privacy" className="text-primary-600 hover:text-primary-700 hover:underline">
+                Privacy Policy
+              </a>
             </p>
           </div>
         </div>
