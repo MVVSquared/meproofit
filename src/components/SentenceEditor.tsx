@@ -39,22 +39,27 @@ export const SentenceEditor: React.FC<SentenceEditorProps> = ({
   const words = toWords(value);
   const originalWords = toWords(originalValue || '');
 
+  const editorOpen = editor !== null;
+
+  useEffect(() => {
+    if (!editorOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editorOpen]);
+
   useEffect(() => {
     if (!editor) return;
 
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus();
-      inputRef.current?.select();
     }, 50);
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [editor]);
+    return () => window.clearTimeout(focusTimer);
+  }, [editor?.mode, editor?.index]);
 
   const closeEditor = () => setEditor(null);
 
