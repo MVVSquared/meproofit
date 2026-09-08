@@ -498,6 +498,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             />
           </div>
 
+          {/* Submit Button */}
+          <div className="flex justify-center mb-6">
+            <button
+              onClick={handleSubmit}
+              disabled={!(userInput && userInput.trim()) || isComplete}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Correction
+            </button>
+          </div>
+
           {/* Attempt History */}
           {attemptHistory.length > 0 && (
             <div className="mb-6">
@@ -558,17 +569,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               </p>
             </div>
           )}
-
-          {/* Submit Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={handleSubmit}
-              disabled={!(userInput && userInput.trim()) || isComplete}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Submit Correction
-            </button>
-          </div>
         </div>
       </div>
 
