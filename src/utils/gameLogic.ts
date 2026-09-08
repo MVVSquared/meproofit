@@ -3,6 +3,55 @@ import { validateAndSanitizeSentence, normalizeSentenceInput, isSafeInput } from
 
 type AlignPair = { leftIndex: number | null; rightIndex: number | null };
 
+export interface CompletionCopy {
+  emoji: string;
+  headline: string;
+  shortLabel: string;
+  cardClass: string;
+  textClass: string;
+  mutedTextClass: string;
+  badgeClass: string;
+}
+
+const RESULT_STYLES = {
+  perfect: {
+    cardClass: 'border-amber-300 bg-amber-50 hover:border-amber-400 hover:shadow-md',
+    textClass: 'text-amber-700',
+    mutedTextClass: 'text-amber-600',
+    badgeClass: 'bg-amber-100 text-amber-800'
+  },
+  excellent: {
+    cardClass: 'border-green-300 bg-green-50 hover:border-green-400 hover:shadow-md',
+    textClass: 'text-green-700',
+    mutedTextClass: 'text-green-600',
+    badgeClass: 'bg-green-100 text-green-800'
+  },
+  goodJob: {
+    cardClass: 'border-sky-300 bg-sky-50 hover:border-sky-400 hover:shadow-md',
+    textClass: 'text-sky-700',
+    mutedTextClass: 'text-sky-600',
+    badgeClass: 'bg-sky-100 text-sky-800'
+  },
+  whew: {
+    cardClass: 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:shadow-md',
+    textClass: 'text-orange-700',
+    mutedTextClass: 'text-orange-600',
+    badgeClass: 'bg-orange-100 text-orange-800'
+  },
+  missed: {
+    cardClass: 'border-rose-300 bg-rose-50 hover:border-rose-400 hover:shadow-md',
+    textClass: 'text-rose-700',
+    mutedTextClass: 'text-rose-600',
+    badgeClass: 'bg-rose-100 text-rose-800'
+  },
+  finished: {
+    cardClass: 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:shadow-md',
+    textClass: 'text-slate-700',
+    mutedTextClass: 'text-slate-600',
+    badgeClass: 'bg-slate-100 text-slate-800'
+  }
+} as const;
+
 export class GameLogic {
   static normalizeForCompare(str: string): string {
     return str
@@ -144,7 +193,7 @@ export class GameLogic {
     gotItRight: boolean | null,
     attempts: number,
     options?: { maxAttempts?: number; isDaily?: boolean }
-  ): { emoji: string; headline: string; shortLabel: string } {
+  ): CompletionCopy {
     const maxAttempts = options?.maxAttempts ?? 4;
     const isDaily = options?.isDaily ?? true;
 
@@ -153,27 +202,31 @@ export class GameLogic {
         return {
           emoji: '🌟',
           headline: 'Perfect! You got it in 1 guess.',
-          shortLabel: 'Perfect'
+          shortLabel: 'Perfect',
+          ...RESULT_STYLES.perfect
         };
       }
       if (attempts === 2) {
         return {
           emoji: '🎉',
           headline: 'Excellent! You got it in 2 guesses.',
-          shortLabel: 'Excellent'
+          shortLabel: 'Excellent',
+          ...RESULT_STYLES.excellent
         };
       }
       if (attempts === 3) {
         return {
           emoji: '👍',
           headline: 'Good job! You got it in 3 guesses.',
-          shortLabel: 'Good job'
+          shortLabel: 'Good job',
+          ...RESULT_STYLES.goodJob
         };
       }
       return {
         emoji: '😅',
         headline: 'Whew! You got it on the final guess.',
-        shortLabel: 'Whew'
+        shortLabel: 'Whew',
+        ...RESULT_STYLES.whew
       };
     }
 
@@ -183,7 +236,8 @@ export class GameLogic {
         headline: isDaily
           ? 'Too bad, but come back tomorrow to try again.'
           : 'Too bad — try another sentence.',
-        shortLabel: isDaily ? 'Try tomorrow' : 'Try again'
+        shortLabel: isDaily ? 'Try tomorrow' : 'Try again',
+        ...RESULT_STYLES.missed
       };
     }
 
@@ -192,7 +246,8 @@ export class GameLogic {
       headline: attempts === maxAttempts
         ? 'You used all 4 guesses.'
         : `You finished in ${attempts} guess${attempts === 1 ? '' : 'es'}.`,
-      shortLabel: `${attempts} guess${attempts === 1 ? '' : 'es'}`
+      shortLabel: `${attempts} guess${attempts === 1 ? '' : 'es'}`,
+      ...RESULT_STYLES.finished
     };
   }
 

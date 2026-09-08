@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArchiveEntry, User } from '../types';
 import { DailySentenceService } from '../services/dailySentenceService';
 import { GameLogic } from '../utils/gameLogic';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, X } from 'lucide-react';
 
 interface GradeSelectorProps {
   user: User;
@@ -51,7 +51,7 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
     onGradeSelect(selectedGrade);
   };
 
-  const resultLabel = (entry: ArchiveEntry): string => {
+  const resultCopy = (entry: ArchiveEntry) => {
     return GameLogic.getCompletionCopy(
       GameLogic.didSucceedFromResult(
         entry.userInput,
@@ -60,7 +60,7 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
       ),
       entry.userAttempts || 0,
       { isDaily: true }
-    ).shortLabel;
+    );
   };
 
   return (
@@ -86,6 +86,14 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
           {grades.map((grade) => {
             const completed = todaysResults[grade.value];
             const isSelected = selectedGrade === grade.value;
+            const copy = completed ? resultCopy(completed) : null;
+            const gotItRight = completed
+              ? GameLogic.didSucceedFromResult(
+                  completed.userInput,
+                  completed.correctSentence,
+                  completed.userAttempts
+                )
+              : null;
 
             return (
               <button
@@ -94,19 +102,19 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
                 className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
                   isSelected
                     ? 'border-primary-500 bg-primary-50 shadow-lg scale-105'
-                    : completed
-                      ? 'border-green-300 bg-green-50 hover:border-green-400 hover:shadow-md'
+                    : copy
+                      ? copy.cardClass
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
                 }`}
               >
                 <div className="text-center">
                   <div className={`text-3xl font-bold mb-2 ${
-                    isSelected ? 'text-primary-600' : completed ? 'text-green-700' : 'text-gray-700'
+                    isSelected ? 'text-primary-600' : copy ? copy.textClass : 'text-gray-700'
                   }`}>
                     {grade.label}
                   </div>
                   <div className={`text-sm ${
-                    isSelected ? 'text-primary-600' : completed ? 'text-green-700' : 'text-gray-500'
+                    isSelected ? 'text-primary-600' : copy ? copy.mutedTextClass : 'text-gray-500'
                   }`}>
                     {grade.description}
                   </div>
@@ -115,10 +123,10 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
                       Your default grade
                     </div>
                   )}
-                  {completed && (
-                    <div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      <Check size={12} />
-                      Done today · {resultLabel(completed)}
+                  {copy && (
+                    <div className={`mt-2 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${copy.badgeClass}`}>
+                      {gotItRight ? <Check size={12} /> : <X size={12} />}
+                      Done today · {copy.shortLabel}
                     </div>
                   )}
                 </div>
