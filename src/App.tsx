@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Topic, User, GameMode } from './types';
 import { TopicSelector } from './components/TopicSelector';
 import { GameBoard } from './components/GameBoard';
@@ -305,6 +306,7 @@ function App() {
           </div>
         </div>
       </footer>
+      <Analytics />
     </div>
   );
 }
